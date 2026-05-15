@@ -13,16 +13,7 @@
       "backgroundColor": "#ffffff"
     },
     "ios": {
-      "supportsTablet": true,
-      "bundleIdentifier": "com.metaboapp",
-      "infoPlist": {
-        "NSHealthShareUsageDescription": "MetaboApp reads your heart rate variability, sleep, and step data from Apple Watch to personalize your metabolic wellness insights and recovery scoring.",
-        "NSHealthUpdateUsageDescription": "MetaboApp does not write any data to Apple Health."
-      },
-      "entitlements": {
-        "com.apple.developer.healthkit": true,
-        "com.apple.developer.healthkit.access": []
-      }
+      "supportsTablet": true
     },
     "android": {
       "adaptiveIcon": {
