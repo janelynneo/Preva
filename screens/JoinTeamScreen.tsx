@@ -28,7 +28,7 @@ export default function JoinTeamScreen({ navigation }: JoinTeamScreenProps) {
     const team = await TeamService.joinTeam(code.toUpperCase());
     setLoading(false);
     if (team) {
-      navigation.navigate("Welcome");
+      navigation.navigate("HomeTabs");
     } else {
       setError("Invalid invite code. Try again.");
     }

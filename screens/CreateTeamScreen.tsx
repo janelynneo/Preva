@@ -27,7 +27,7 @@ export default function CreateTeamScreen({
     setLoading(true);
     await TeamService.createTeam(name.trim(), goal);
     setLoading(false);
-    navigation.navigate("Welcome");
+    navigation.navigate("HomeTabs");
   }
 
   return (

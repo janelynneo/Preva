@@ -196,6 +196,10 @@ export default function WelcomeScreen({ navigation }: { navigation: any }) {
             ))}
           </View>
 
+          <View style={styles.quoteCard}>
+            <Text style={styles.quoteText}>"{quote}"</Text>
+          </View>
+
           <TouchableOpacity
             style={styles.ctaButton}
             onPress={() => navigation.navigate("Onboarding")}
@@ -276,7 +280,7 @@ export default function WelcomeScreen({ navigation }: { navigation: any }) {
         {isBaseline ? (
           <TouchableOpacity
             style={styles.baselineCard}
-            onPress={() => navigation.navigate("CheckIn")}
+            onPress={() => navigation.navigate("Check-In")}
           >
             <Text style={styles.baselineLabel}>BASELINE BUILDING</Text>
             <Text style={styles.baselineTitle}>Keep checking in daily</Text>
@@ -386,7 +390,7 @@ export default function WelcomeScreen({ navigation }: { navigation: any }) {
         <View style={styles.actions}>
           <TouchableOpacity
             style={styles.primaryAction}
-            onPress={() => navigation.navigate("CheckIn")}
+            onPress={() => navigation.navigate("Check-In")}
           >
             <Text style={styles.primaryActionText}>Morning Briefing</Text>
           </TouchableOpacity>

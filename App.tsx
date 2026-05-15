@@ -21,8 +21,8 @@ const Stack = createNativeStackNavigator();
 
 function TabIcon({ label, focused }: { label: string; focused: boolean }) {
   const icons: Record<string, string> = {
-    Welcome: "👋",
-    CheckIn: "📝",
+    Home: "👋",
+    "Check-In": "📝",
     Profile: "👤",
     Coach: "🤖",
   };
@@ -36,7 +36,7 @@ function TabIcon({ label, focused }: { label: string; focused: boolean }) {
   );
 }
 
-// Bottom Tab Navigator — Welcome is the home/default tab
+// Bottom Tab Navigator — Home is the default tab
 function HomeTabs() {
   return (
     <Tab.Navigator
@@ -50,8 +50,8 @@ function HomeTabs() {
         tabBarInactiveTintColor: "#999",
       })}
     >
-      <Tab.Screen name="Welcome" component={WelcomeScreen} />
-      <Tab.Screen name="CheckIn" component={CheckInScreen} />
+      <Tab.Screen name="Home" component={WelcomeScreen} />
+      <Tab.Screen name="Check-In" component={CheckInScreen} />
       <Tab.Screen name="Profile" component={ProfileScreen} />
       <Tab.Screen name="Coach" component={ChatScreen} />
     </Tab.Navigator>
@@ -68,7 +68,6 @@ export default function App() {
           headerShown: false,
         }}
       >
-        <Stack.Screen name="Welcome" component={WelcomeScreen} />
         <Stack.Screen name="Onboarding" component={OnboardingScreen} />
         <Stack.Screen name="HomeTabs" component={HomeTabs} />
         <Stack.Screen
