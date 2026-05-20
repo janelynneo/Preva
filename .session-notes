@@ -2,33 +2,28 @@
 
 ## Where we are
 
-App running with Metro on port 8081. AI coach rewritten with proper timeout + error messages, streak logic corrected, ambient music player added. All changes uncommitted.
+MetaboApp is now on its own GitHub repo (https://github.com/janelynneo/MetaboApp). All prior uncommitted changes committed and pushed. App running via Expo Go at `exp://192.168.1.204:8081`.
 
 ## Read first
 
-1. `MetaboApp/.session-notes` — this file
-2. `MetaboApp/CLAUDE.md` — quick start, key files, design tokens
-3. `MetaboApp/services/aiCoach.ts` — AI coach implementation (just fixed)
+1. `MetaboApp/screens/WelcomeScreen.tsx` — home screen with desk stretches timer (added this session)
+2. `MetaboApp/screens/OnboardingScreen.tsx` — fixed "Start My Baseline" blank screen (submitting guard + try/catch)
+3. `MetaboApp/services/notifications.ts` — seated nudges now distributed Mon–Fri (was hardcoded Tuesday)
+4. `MetaboApp/CLAUDE.md` — full app overview, key files, design tokens
 
 ## In-flight state
 
-All uncommitted. Modified files:
-- `services/audio.ts` — NEW: expo-av background music service
-- `components/MusicPlayer.tsx` — NEW: ambient music player UI component
-- `services/config.ts` — NEW: explicit Ollama URL/model (no env fallback)
-- `services/aiCoach.ts` — rewritten: 20s timeout, AbortController, specific error messages, history in context
-- `screens/CheckInScreen.tsx` — streak bug fixed: uses getLastCheckInDate() not signupDate, same-day no-op
-- `screens/WelcomeScreen.tsx` — MusicPlayer integrated + AMBIENT SOUND section
-- `package.json` — added expo-av
+- All prior uncommitted changes: committed as `2920f53 feat(Pulse): desk stretches with timer, onboarding fix, seated nudges Mon-Fri`
+- Git remote redirected from Preva.git → MetaboApp.git; all 12 commits pushed
+
+## Outstanding ledger (forest)
+
+Forest empty — every item closed or externally blocked.
 
 ## Traps
 
-- Ollama must be at 192.168.1.204:11434 — AI coach fails silently if unreachable
-- Expo Go QR for dev — full HealthKit needs `npx expo run:ios` native build
-- `HomeScreen.tsx` is dead code (unused import in App.tsx already cleaned)
-
-## Open questions for the human
-
-- HealthKit service (`services/health.ts`) still needs a fetch timeout (same pattern as aiCoach)
+- Ollama must be at `192.168.1.204:11434` — AI coach fails silently if unreachable; restart with `OLLAMA_HOST=0.0.0.0 open -a Ollama`
+- Phone shows old bundle: force-quit Expo Go and reconnect
+- HealthKit fetch timeout still missing in `services/health.ts` (same 20s pattern as aiCoach.ts)
 - Team service is mock-only — no real backend
-- Package version warnings in `npm install` output — several expo deps ahead of expected
+- Package version warnings in `npm install` output (several expo deps ahead of expected)
