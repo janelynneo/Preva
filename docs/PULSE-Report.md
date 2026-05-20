@@ -216,6 +216,33 @@ OLLAMA_MODEL=mistral:7b
 
 The pod is referenced in `ios/Podfile` as `pod 'MetaboHealthKit', path: '../ios/LocalPods/MetaboHealthKit'`.
 
+### Machine Learning Layer
+
+**Current Stage: Demo / Prototype**
+
+The ML architecture is designed in two layers. At this demo stage, the app uses simulated data and logic to validate the product concept and user engagement loop. The actual ML models will be connected in a subsequent phase.
+
+**Layer 1 — Supervised (10-year metabolic risk):**
+Cox PH / Random Survival Forest models trained on NHANES (National Health and Nutrition Examination Survey) data → outputs a "Metabolic Wellness Index" tier (1–5), shown as a personal wellness score, never as a disease diagnosis. This layer runs server-side once the app has an active user base for model training.
+
+**Layer 2 — Unsupervised (daily nudges):**
+Personal baseline deviation + anomaly detection on check-in signals (sleep, HRV, energy, stress, meal quality) → generates the daily nudges and personalised insights. This is a per-user model that learns from 28 days of check-in history to detect meaningful deviations from personal norm.
+
+**Data Sources (future integration):**
+
+- **Wearables** — Apple Watch via HealthKit (HRV, resting heart rate, steps, sleep) and Fitbit (HRV, sleep stages) will feed the personal baseline model. The HealthKit bridge is already wired in the app; Fitbit integration is scoped for Year 2.
+- **Self-reported check-ins** — daily 30-second log provides the behavioral signal ground truth for model training.
+- **NHANES** — US epidemiology dataset used for the population-level risk tier calibration (Layer 1). Asian metabolic norms will be calibrated against Singapore health datasets in Year 2 as local data becomes available.
+
+**Current implementation:**
+The app computes a simplified MWI score from check-in data and Apple Watch metrics using rule-based logic. This is functional for the demo and validates the engagement loop. The full ML pipeline will be integrated once:
+
+1. The app architecture is validated with real users
+2. A sufficient dataset is collected (minimum ~500 active users for baseline model training)
+3. The backend infrastructure is in place for model serving
+
+---
+
 ### Known Issues
 
 1. **Team service is mock** — `services/team.ts` returns hardcoded data. A real backend (Firebase/Supabase/custom API) needs to be integrated before team challenges work across users.
