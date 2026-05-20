@@ -40,6 +40,7 @@ export default function OnboardingScreen({ navigation }: any) {
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
   const [reminderTime, setReminderTime] = useState("20:00");
   const [consentChecked, setConsentChecked] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
 
   const bmi = weight / Math.pow(height / 100, 2);
   const bmiCategory =
@@ -73,16 +74,16 @@ export default function OnboardingScreen({ navigation }: any) {
   };
 
   const handleNext = async () => {
-    console.log(
-      "handleNext called, step:",
-      step,
-      "consentChecked:",
-      consentChecked,
-    );
+    // Prevent double-submission
+    if (submitting) return;
+
     if (step < TOTAL_STEPS) {
       setStep(step + 1);
-    } else {
-      // Complete onboarding
+      return;
+    }
+
+    setSubmitting(true);
+    try {
       const profile: UserProfile = {
         name,
         age,
@@ -97,11 +98,9 @@ export default function OnboardingScreen({ navigation }: any) {
       const today = new Date().toISOString().split("T")[0];
       await StorageService.setSignupDate(today);
 
-      // Persist notification preferences
       if (notificationsEnabled) {
         const [hourStr, minStr] = reminderTime.split(":");
         const hour = parseInt(hourStr ?? "20", 10);
-        const minute = parseInt(minStr ?? "0", 10);
         await saveReminderConfig({
           enabled: true,
           time: "evening",
@@ -109,9 +108,12 @@ export default function OnboardingScreen({ navigation }: any) {
         });
       }
 
-      console.log("Profile saved, navigating to HomeTabs");
-      // Replace the current route so user can't go back to onboarding
       navigation.replace("HomeTabs");
+    } catch (err) {
+      console.error("handleNext error:", err);
+      navigation.replace("HomeTabs");
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -521,12 +523,19 @@ export default function OnboardingScreen({ navigation }: any) {
 
       <View style={styles.footer}>
         <TouchableOpacity
-          style={[styles.button, !canProceed() && styles.buttonDisabled]}
+          style={[
+            styles.button,
+            (!canProceed() || submitting) && styles.buttonDisabled,
+          ]}
           onPress={handleNext}
-          disabled={!canProceed()}
+          disabled={!canProceed() || submitting}
         >
           <Text style={styles.buttonText}>
-            {step < TOTAL_STEPS ? "Continue" : "Start My Baseline"}
+            {submitting
+              ? "Setting up..."
+              : step < TOTAL_STEPS
+                ? "Continue"
+                : "Start My Baseline"}
           </Text>
         </TouchableOpacity>
 

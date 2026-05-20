@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, Component } from "react";
 import {
   View,
   Text,
@@ -9,7 +9,12 @@ import {
 } from "react-native";
 import { StorageService } from "../services/storage";
 import { TeamService } from "../services/team";
-import { getDailyInsight, getDailyQuote } from "../services/insights";
+import {
+  getDailyInsight,
+  getDailyQuote,
+  getContextualStretch,
+  getAllStretches,
+} from "../services/insights";
 import { CheckIn, UserProfile } from "../services/storage";
 import { computeRecoveryScore } from "../services/health";
 import {
@@ -19,6 +24,53 @@ import {
   fireSeatedNudge,
 } from "../services/notifications";
 import MusicPlayer from "../components/MusicPlayer";
+
+// Error boundary to prevent white screen on render errors
+class WelcomeScreenBoundary extends Component<
+  { children: React.ReactNode },
+  { hasError: boolean }
+> {
+  constructor(props: { children: React.ReactNode }) {
+    super(props);
+    this.state = { hasError: false };
+  }
+  static getDerivedStateFromError() {
+    return { hasError: true };
+  }
+  componentDidCatch(error: Error, info: React.ErrorInfo) {
+    console.error("WelcomeScreen error:", error, info.componentStack);
+  }
+  render() {
+    if (this.state.hasError) {
+      return (
+        <View
+          style={{
+            flex: 1,
+            justifyContent: "center",
+            alignItems: "center",
+            backgroundColor: "#f8fafc",
+            padding: 20,
+          }}
+        >
+          <Text
+            style={{
+              fontSize: 18,
+              fontWeight: "600",
+              color: "#0D3B3B",
+              marginBottom: 8,
+            }}
+          >
+            Something went wrong
+          </Text>
+          <Text style={{ fontSize: 14, color: "#6366f1", textAlign: "center" }}>
+            Please restart the app
+          </Text>
+        </View>
+      );
+    }
+    return this.props.children;
+  }
+}
 
 const { width } = Dimensions.get("window");
 const BASELINE_DAYS = 28;
@@ -32,7 +84,7 @@ function getWeekRange(): { label: string } {
   return { label: `${fmt(start)} – ${fmt(now)}` };
 }
 
-export default function WelcomeScreen({ navigation }: { navigation: any }) {
+function WelcomeScreenInner({ navigation }: { navigation: any }) {
   // Tab navigator's navigation can't reach Stack screens directly
   // Use getParent() for Stack-level navigation
   const stackNav = navigation.getParent?.() ?? navigation;
@@ -59,6 +111,14 @@ export default function WelcomeScreen({ navigation }: { navigation: any }) {
   const [quote, setQuote] = useState("");
   const [weekRange, setWeekRange] = useState(getWeekRange());
   const [mwiScore, setMwiScore] = useState<number | null>(null);
+  const [activeStretch, setActiveStretch] = useState<{
+    name: string;
+    emoji: string;
+    instructions: string;
+    duration: string;
+    remainingSecs: number;
+  } | null>(null);
+  const [timerActive, setTimerActive] = useState(false);
 
   useEffect(() => {
     loadData();
@@ -73,6 +133,43 @@ export default function WelcomeScreen({ navigation }: { navigation: any }) {
     }, 10000); // 10 second max load time
     return () => clearTimeout(timeout);
   }, []);
+
+  // Timer countdown effect
+  useEffect(() => {
+    if (!timerActive || !activeStretch) return;
+    if (activeStretch.remainingSecs <= 0) {
+      setTimerActive(false);
+      return;
+    }
+    const id = setInterval(() => {
+      setActiveStretch((prev) =>
+        prev ? { ...prev, remainingSecs: prev.remainingSecs - 1 } : null,
+      );
+    }, 1000);
+    return () => clearInterval(id);
+  }, [timerActive, activeStretch]);
+
+  function startStretch() {
+    const all = getAllStretches();
+    const pick = all[Math.floor(Math.random() * all.length)];
+    const secs = parseDuration(pick.duration);
+    setActiveStretch({ ...pick, remainingSecs: secs });
+    setTimerActive(true);
+  }
+
+  function parseDuration(dur: string): number {
+    const m = dur.match(/(\d+)\s*min/);
+    const s = dur.match(/(\d+)\s*sec/);
+    if (m) return parseInt(m[1]) * 60;
+    if (s) return parseInt(s[1]);
+    return 60;
+  }
+
+  function formatTime(secs: number): string {
+    const m = Math.floor(secs / 60);
+    const s = secs % 60;
+    return `${m}:${s.toString().padStart(2, "0")}`;
+  }
 
   // Helper: wrap any async operation with a timeout
   function withTimeout<T>(
@@ -443,6 +540,70 @@ export default function WelcomeScreen({ navigation }: { navigation: any }) {
           </View>
         ) : null}
 
+        {/* Desk Stretches */}
+        <Text style={styles.sectionLabel}>DESK STRETCHES</Text>
+        {activeStretch ? (
+          <View style={styles.stretchCard}>
+            <View style={styles.stretchHeader}>
+              <Text style={styles.stretchEmoji}>{activeStretch.emoji}</Text>
+              <View style={styles.stretchInfo}>
+                <Text style={styles.stretchName}>{activeStretch.name}</Text>
+                <Text style={styles.stretchWhen}>{activeStretch.duration}</Text>
+              </View>
+              <View style={styles.timerCircle}>
+                <Text style={styles.timerText}>
+                  {formatTime(activeStretch.remainingSecs)}
+                </Text>
+              </View>
+            </View>
+            <Text style={styles.stretchInstructions}>
+              {activeStretch.instructions}
+            </Text>
+            <View style={styles.stretchActions}>
+              {timerActive ? (
+                <TouchableOpacity
+                  style={styles.stretchPauseBtn}
+                  onPress={() => setTimerActive(false)}
+                >
+                  <Text style={styles.stretchPauseText}>Pause</Text>
+                </TouchableOpacity>
+              ) : (
+                <TouchableOpacity
+                  style={styles.stretchStartBtn}
+                  onPress={() => setTimerActive(true)}
+                >
+                  <Text style={styles.stretchStartText}>
+                    {activeStretch.remainingSecs === 0 ? "Restart" : "Resume"}
+                  </Text>
+                </TouchableOpacity>
+              )}
+              <TouchableOpacity
+                style={styles.stretchSkipBtn}
+                onPress={() => {
+                  setTimerActive(false);
+                  setActiveStretch(null);
+                }}
+              >
+                <Text style={styles.stretchSkipText}>Done</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        ) : (
+          <TouchableOpacity
+            style={styles.stretchPickCard}
+            onPress={startStretch}
+          >
+            <Text style={styles.stretchPickEmoji}>🧘</Text>
+            <View style={styles.stretchPickInfo}>
+              <Text style={styles.stretchPickTitle}>Take a stretch break</Text>
+              <Text style={styles.stretchPickSub}>
+                Quick desk stretches with timer — counteracts sitting pain
+              </Text>
+            </View>
+            <Text style={styles.stretchPickArrow}>→</Text>
+          </TouchableOpacity>
+        )}
+
         {/* Team Challenge */}
         <Text style={styles.sectionLabel}>TEAM CHALLENGE</Text>
         {team ? (
@@ -599,6 +760,14 @@ export default function WelcomeScreen({ navigation }: { navigation: any }) {
         </View>
       </ScrollView>
     </View>
+  );
+}
+
+export default function WelcomeScreen(props: { navigation: any }) {
+  return (
+    <WelcomeScreenBoundary>
+      <WelcomeScreenInner {...props} />
+    </WelcomeScreenBoundary>
   );
 }
 
@@ -1008,4 +1177,77 @@ const styles = StyleSheet.create({
     borderColor: "#0D3B3B",
   },
   secondaryActionText: { color: "#0D3B3B", fontSize: 17, fontWeight: "600" },
+
+  // ── Desk Stretches ──────────────────────────────────
+  stretchCard: {
+    backgroundColor: "#e0f2fe",
+    borderRadius: 14,
+    padding: 16,
+    marginHorizontal: 20,
+    marginBottom: 16,
+  },
+  stretchHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 12,
+  },
+  stretchEmoji: { fontSize: 32, marginRight: 12 },
+  stretchInfo: { flex: 1 },
+  stretchName: { fontSize: 17, fontWeight: "700", color: "#0D3B3B" },
+  stretchWhen: { fontSize: 13, color: "#6366f1", fontWeight: "500" },
+  timerCircle: {
+    backgroundColor: "#0D3B3B",
+    borderRadius: 22,
+    width: 44,
+    height: 44,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  timerText: { color: "#fff", fontSize: 14, fontWeight: "700" },
+  stretchInstructions: {
+    fontSize: 14,
+    color: "#475569",
+    lineHeight: 20,
+    marginBottom: 14,
+  },
+  stretchActions: { flexDirection: "row", gap: 10 },
+  stretchStartBtn: {
+    backgroundColor: "#0D3B3B",
+    borderRadius: 10,
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+  },
+  stretchStartText: { color: "#fff", fontWeight: "600", fontSize: 14 },
+  stretchPauseBtn: {
+    backgroundColor: "#6366f1",
+    borderRadius: 10,
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+  },
+  stretchPauseText: { color: "#fff", fontWeight: "600", fontSize: 14 },
+  stretchSkipBtn: {
+    backgroundColor: "#fff",
+    borderRadius: 10,
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    borderWidth: 1,
+    borderColor: "#cbd5e1",
+  },
+  stretchSkipText: { color: "#64748b", fontWeight: "500", fontSize: 14 },
+  stretchPickCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#f0fdf4",
+    borderRadius: 14,
+    padding: 16,
+    marginHorizontal: 20,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: "#bbf7d0",
+  },
+  stretchPickEmoji: { fontSize: 28, marginRight: 12 },
+  stretchPickInfo: { flex: 1 },
+  stretchPickTitle: { fontSize: 15, fontWeight: "600", color: "#166534" },
+  stretchPickSub: { fontSize: 12, color: "#15803d", marginTop: 2 },
+  stretchPickArrow: { fontSize: 18, color: "#15803d" },
 });

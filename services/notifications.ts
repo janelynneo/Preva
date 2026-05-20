@@ -394,22 +394,33 @@ export async function scheduleSeatedNudges(): Promise<void> {
     }
   }
 
-  // Fire only on weekdays (Mon=1 through Fri=6)
-  for (const nudge of SEATED_NUDGES) {
-    await Notifications.scheduleNotificationAsync({
-      content: {
-        title: nudge.title,
-        body: nudge.body,
-        data: { type: nudge.dataType },
-        sound: true,
-      },
-      trigger: {
-        type: Notifications.SchedulableTriggerInputTypes.WEEKLY,
-        weekday: 2, // Tuesday — distributes across the week
-        hour: nudge.triggerHour,
-        minute: nudge.triggerMinute,
-      },
-    });
+  // Fire Mon–Fri (weekday 1–5). Each nudge gets a different day so
+  // there's at least one reminder every working day.
+  const weekdayMap: Record<number, (typeof SEATED_NUDGES)[number][]> = {
+    1: [SEATED_NUDGES[0]], // Monday:    morning 10:30
+    2: [SEATED_NUDGES[1]], // Tuesday:   afternoon 14:00
+    3: [SEATED_NUDGES[0]], // Wednesday: morning 10:30
+    4: [SEATED_NUDGES[1]], // Thursday:  afternoon 14:00
+    5: [SEATED_NUDGES[2]], // Friday:    late-afternoon 16:00
+  };
+
+  for (const [weekday, nudges] of Object.entries(weekdayMap)) {
+    for (const nudge of nudges) {
+      await Notifications.scheduleNotificationAsync({
+        content: {
+          title: nudge.title,
+          body: nudge.body,
+          data: { type: nudge.dataType },
+          sound: true,
+        },
+        trigger: {
+          type: Notifications.SchedulableTriggerInputTypes.WEEKLY,
+          weekday: Number(weekday),
+          hour: nudge.triggerHour,
+          minute: nudge.triggerMinute,
+        },
+      });
+    }
   }
 }
 
