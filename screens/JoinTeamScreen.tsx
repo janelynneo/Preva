@@ -25,12 +25,18 @@ export default function JoinTeamScreen({ navigation }: JoinTeamScreenProps) {
     }
     setLoading(true);
     setError("");
-    const team = await TeamService.joinTeam(code.toUpperCase());
-    setLoading(false);
-    if (team) {
-      navigation.navigate("HomeTabs");
-    } else {
-      setError("Invalid invite code. Try again.");
+    try {
+      const team = await TeamService.joinTeam(code.toUpperCase());
+      if (team) {
+        navigation.navigate("HomeTabs");
+      } else {
+        setError("Invalid invite code. Try again.");
+      }
+    } catch (error) {
+      console.warn("JoinTeamScreen: failed to join team", error);
+      setError("Something went wrong. Please try again.");
+    } finally {
+      setLoading(false);
     }
   }
 

@@ -25,9 +25,14 @@ export default function CreateTeamScreen({
   async function handleCreate() {
     if (!name.trim()) return;
     setLoading(true);
-    await TeamService.createTeam(name.trim(), goal);
-    setLoading(false);
-    navigation.navigate("HomeTabs");
+    try {
+      await TeamService.createTeam(name.trim(), goal);
+      navigation.navigate("HomeTabs");
+    } catch (error) {
+      console.warn("CreateTeamScreen: failed to create team", error);
+    } finally {
+      setLoading(false);
+    }
   }
 
   return (

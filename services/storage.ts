@@ -102,4 +102,27 @@ export const StorageService = {
     const keys = Object.values(KEYS);
     await Promise.all(keys.map((k) => AsyncStorage.removeItem(k)));
   },
+
+  async getLastCheckInDate(): Promise<string | null> {
+    try {
+      const checkIns = await this.getCheckIns();
+      if (checkIns.length === 0) return null;
+      // Check-ins are stored most-recent-last, so grab the last entry
+      return checkIns[checkIns.length - 1]?.date ?? null;
+    } catch {
+      return null;
+    }
+  },
+
+  async getDaysSinceLastCheckIn(): Promise<number> {
+    const lastDate = await this.getLastCheckInDate();
+    if (!lastDate) return -1; // never checked in
+    const last = new Date(lastDate);
+    last.setHours(0, 0, 0, 0);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    return Math.floor(
+      (today.getTime() - last.getTime()) / (1000 * 60 * 60 * 24),
+    );
+  },
 };

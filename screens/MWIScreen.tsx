@@ -1,12 +1,14 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from "react";
 import {
   View,
   Text,
   StyleSheet,
   TouchableOpacity,
   ScrollView,
-} from 'react-native';
-import { StatusBar } from 'expo-status-bar';
+} from "react-native";
+import { StatusBar } from "expo-status-bar";
+import { StorageService, CheckIn, UserProfile } from "../services/storage";
+import { computeMetabolicAge, computeRecoveryScore } from "../services/health";
 
 interface MWIScreenProps {
   navigation?: any;
@@ -14,54 +16,147 @@ interface MWIScreenProps {
 
 export default function MWIScreen({ navigation }: MWIScreenProps) {
   const [expandedFAQ, setExpandedFAQ] = useState(false);
+  const [profile, setProfile] = useState<UserProfile | null>(null);
+  const [checkIns, setCheckIns] = useState<CheckIn[]>([]);
+  const [metabolicAge, setMetabolicAge] = useState<number | null>(null);
+  const [metabolicDelta, setMetabolicDelta] = useState<number>(0);
+  const [recoveryScore, setRecoveryScore] = useState<number>(0);
+  const [loading, setLoading] = useState(true);
 
-  // Mock data
-  const mwiData = {
-    tier: 2,
-    tierLabel: 'Tier 2',
-    tierColor: '#eab308',
-    recoveryChange: 12,
-    accuracy: 68,
-    trendProgress: 45,
-    recommendation:
-      'Your metabolic wellness is progressing well. Focus on consistent sleep schedules and regular movement throughout the workday.',
-    lastUpdated: 'Today at 7:23 AM',
+  useEffect(() => {
+    loadData();
+    // Safety timeout: ensure we always exit loading state
+    const timeout = setTimeout(() => setLoading(false), 10000);
+    return () => clearTimeout(timeout);
+  }, []);
+
+  // Helper: wrap any async operation with a timeout
+  function withTimeout<T>(
+    promise: Promise<T>,
+    ms: number,
+    fallback: T,
+  ): Promise<T> {
+    return Promise.race([
+      promise,
+      new Promise<T>((resolve) => setTimeout(() => resolve(fallback), ms)),
+    ]);
+  }
+
+  async function loadData() {
+    try {
+      const profileData = await StorageService.getProfile();
+      const checkInsData = await StorageService.getCheckIns();
+      setProfile(profileData);
+      setCheckIns(checkInsData);
+
+      if (profileData) {
+        const last7Days = checkInsData.slice(-7);
+        const avgSleep =
+          last7Days.length > 0
+            ? last7Days.reduce((s, c) => s + c.sleepQuality, 0) /
+              last7Days.length
+            : 3;
+
+        // HealthKit calls with timeout fallback
+        const [ageResult, recovery] = await Promise.all([
+          withTimeout(computeMetabolicAge(profileData.age, avgSleep), 5000, {
+            metabolicAge: profileData.age,
+            delta: 0,
+          }),
+          withTimeout(computeRecoveryScore(), 5000, 0),
+        ]);
+        setMetabolicAge(ageResult.metabolicAge);
+        setMetabolicDelta(ageResult.delta);
+        setRecoveryScore(recovery);
+      }
+    } catch (err) {
+      console.warn("MWIScreen loadData failed:", err);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  const getTier = (score: number) => {
+    if (score >= 75) return { tier: 1, label: "Tier 1", color: "#22c55e" };
+    if (score >= 45) return { tier: 2, label: "Tier 2", color: "#eab308" };
+    return { tier: 3, label: "Tier 3", color: "#ef4444" };
   };
+
+  const mwiTier = getTier(recoveryScore);
+  const trendProgress = Math.min(100, Math.max(0, recoveryScore));
+
+  const last7Days = checkIns.slice(-7);
+  const avgSleep =
+    last7Days.length > 0
+      ? last7Days.reduce((s, c) => s + c.sleepQuality, 0) / last7Days.length
+      : 0;
+
+  const getRecommendation = () => {
+    if (mwiTier.tier === 1) {
+      return "Excellent metabolic wellness! Maintain your consistent sleep schedule and daily movement habits.";
+    }
+    if (mwiTier.tier === 2) {
+      if (avgSleep < 3.5) {
+        return "Your energy could improve. Try going to bed 30 minutes earlier this week.";
+      }
+      return "Focus on consistent sleep schedules and regular movement throughout the workday.";
+    }
+    return "Prioritise recovery this week. Aim for 7-8 hours of sleep and reduce sedentary time.";
+  };
+
+  const lastUpdated = new Date().toLocaleDateString("en-SG", {
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+
+  // Accuracy based on data sources available
+  const getAccuracy = () => {
+    let score = 30; // base from check-ins
+    if (profile?.wearableConnected) score += 40;
+    if (last7Days.length >= 7) score += 15;
+    if (metabolicAge !== null) score += 15;
+    return Math.min(100, score);
+  };
+
+  const accuracy = getAccuracy();
 
   const tiers = [
     {
       tier: 1,
-      label: 'Tier 1',
-      color: '#22c55e',
-      name: 'Optimal',
-      desc: 'Excellent metabolic function with high recovery capacity',
+      label: "Tier 1",
+      color: "#22c55e",
+      name: "Optimal",
+      desc: "Excellent metabolic function with high recovery capacity",
     },
     {
       tier: 2,
-      label: 'Tier 2',
-      color: '#eab308',
-      name: 'Building',
-      desc: 'Good metabolic health with room to optimize recovery',
+      label: "Tier 2",
+      color: "#eab308",
+      name: "Building",
+      desc: "Good metabolic health with room to optimize recovery",
     },
     {
       tier: 3,
-      label: 'Tier 3',
-      color: '#ef4444',
-      name: 'Needs Attention',
-      desc: 'Metabolic markers suggest prioritizing recovery and lifestyle changes',
+      label: "Tier 3",
+      color: "#ef4444",
+      name: "Needs Attention",
+      desc: "Metabolic markers suggest prioritizing recovery and lifestyle changes",
     },
   ];
 
   const getTierEmoji = (tier: number) => {
     switch (tier) {
       case 1:
-        return '🟢';
+        return "🟢";
       case 2:
-        return '🟡';
+        return "🟡";
       case 3:
-        return '🔴';
+        return "🔴";
       default:
-        return '⚪';
+        return "⚪";
     }
   };
 
@@ -78,7 +173,7 @@ export default function MWIScreen({ navigation }: MWIScreenProps) {
             <Text style={styles.backText}>‹ Back</Text>
           </TouchableOpacity>
           <Text style={styles.title}>Your MWI</Text>
-          <Text style={styles.lastUpdated}>{mwiData.lastUpdated}</Text>
+          <Text style={styles.lastUpdated}>{lastUpdated}</Text>
         </View>
 
         {/* Tier Badge */}
@@ -86,36 +181,52 @@ export default function MWIScreen({ navigation }: MWIScreenProps) {
           <View
             style={[
               styles.tierBadge,
-              { backgroundColor: mwiData.tierColor + '20' },
+              { backgroundColor: mwiTier.color + "20" },
             ]}
           >
-            <Text style={styles.tierEmoji}>{getTierEmoji(mwiData.tier)}</Text>
-            <Text style={[styles.tierBadgeText, { color: mwiData.tierColor }]}>
-              {mwiData.tierLabel}
+            <Text style={styles.tierEmoji}>{getTierEmoji(mwiTier.tier)}</Text>
+            <Text style={[styles.tierBadgeText, { color: mwiTier.color }]}>
+              {mwiTier.label}
             </Text>
           </View>
           <Text style={styles.tierName}>
-            {tiers.find((t) => t.tier === mwiData.tier)?.name}
+            {tiers.find((t) => t.tier === mwiTier.tier)?.name}
           </Text>
           <Text style={styles.tierDesc}>
-            {tiers.find((t) => t.tier === mwiData.tier)?.desc}
+            {tiers.find((t) => t.tier === mwiTier.tier)?.desc}
           </Text>
+          {metabolicAge !== null && (
+            <View style={styles.metabolicAgeRow}>
+              <Text style={styles.metabolicAgeLabel}>Metabolic Age</Text>
+              <Text style={styles.metabolicAgeValue}>{metabolicAge}</Text>
+              {metabolicDelta !== 0 && (
+                <Text
+                  style={[
+                    styles.metabolicAgeDelta,
+                    metabolicDelta < 0
+                      ? styles.metabolicAgeYounger
+                      : styles.metabolicAgeOlder,
+                  ]}
+                >
+                  {metabolicDelta < 0 ? "" : "+"}
+                  {metabolicDelta} yrs
+                </Text>
+              )}
+            </View>
+          )}
         </View>
 
-        {/* Recovery Change */}
+        {/* Recovery Score */}
         <View style={styles.recoveryCard}>
-          <Text style={styles.recoveryLabel}>Recovery vs Last Week</Text>
+          <Text style={styles.recoveryLabel}>Recovery Score</Text>
           <View style={styles.recoveryValue}>
             <Text
               style={[
                 styles.recoveryChange,
-                mwiData.recoveryChange >= 0
-                  ? styles.recoveryUp
-                  : styles.recoveryDown,
+                recoveryScore >= 45 ? styles.recoveryUp : styles.recoveryDown,
               ]}
             >
-              {mwiData.recoveryChange > 0 ? '↑' : '↓'}
-              {Math.abs(mwiData.recoveryChange)}%
+              {recoveryScore}
             </Text>
           </View>
         </View>
@@ -124,23 +235,23 @@ export default function MWIScreen({ navigation }: MWIScreenProps) {
         <View style={styles.accuracyCard}>
           <View style={styles.accuracyHeader}>
             <Text style={styles.accuracyLabel}>MWI Accuracy</Text>
-            <Text style={styles.accuracyValue}>{mwiData.accuracy}%</Text>
+            <Text style={styles.accuracyValue}>{accuracy}%</Text>
           </View>
           <View style={styles.accuracyBar}>
-            <View style={[styles.accuracyBarFill, { width: `${mwiData.accuracy}%` }]} />
+            <View style={[styles.accuracyBarFill, { width: `${accuracy}%` }]} />
           </View>
           <Text style={styles.accuracyHint}>
-            Connect more data sources to improve accuracy
+            {accuracy < 70
+              ? "Connect Apple Watch to improve accuracy"
+              : "Good data coverage for MWI calculation"}
           </Text>
           <View style={styles.accuracyPrompts}>
-            <TouchableOpacity style={styles.accuracyPrompt}>
-              <Text style={styles.accuracyPromptIcon}>⌚</Text>
-              <Text style={styles.accuracyPromptText}>Connect wearable</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.accuracyPrompt}>
-              <Text style={styles.accuracyPromptIcon}>🩸</Text>
-              <Text style={styles.accuracyPromptText}>Add blood test</Text>
-            </TouchableOpacity>
+            {!profile?.wearableConnected && (
+              <TouchableOpacity style={styles.accuracyPrompt}>
+                <Text style={styles.accuracyPromptIcon}>⌚</Text>
+                <Text style={styles.accuracyPromptText}>Connect wearable</Text>
+              </TouchableOpacity>
+            )}
           </View>
         </View>
 
@@ -149,7 +260,7 @@ export default function MWIScreen({ navigation }: MWIScreenProps) {
           <Text style={styles.trendLabel}>Progress to Tier 1</Text>
           <View style={styles.trendBar}>
             <View
-              style={[styles.trendBarFill, { width: `${mwiData.trendProgress}%` }]}
+              style={[styles.trendBarFill, { width: `${trendProgress}%` }]}
             />
           </View>
           <View style={styles.trendLabels}>
@@ -161,7 +272,7 @@ export default function MWIScreen({ navigation }: MWIScreenProps) {
         {/* Recommendation */}
         <View style={styles.recommendationCard}>
           <Text style={styles.recommendationLabel}>Today's Recommendation</Text>
-          <Text style={styles.recommendationText}>{mwiData.recommendation}</Text>
+          <Text style={styles.recommendationText}>{getRecommendation()}</Text>
         </View>
 
         {/* FAQ */}
@@ -171,7 +282,7 @@ export default function MWIScreen({ navigation }: MWIScreenProps) {
             onPress={() => setExpandedFAQ(!expandedFAQ)}
           >
             <Text style={styles.faqTitle}>What are the tiers?</Text>
-            <Text style={styles.faqArrow}>{expandedFAQ ? '−' : '+'}</Text>
+            <Text style={styles.faqArrow}>{expandedFAQ ? "−" : "+"}</Text>
           </TouchableOpacity>
           {expandedFAQ && (
             <View style={styles.faqContent}>
@@ -181,7 +292,9 @@ export default function MWIScreen({ navigation }: MWIScreenProps) {
                     <Text style={styles.tierExplanationEmoji}>
                       {getTierEmoji(tier.tier)}
                     </Text>
-                    <Text style={styles.tierExplanationLabel}>{tier.label}</Text>
+                    <Text style={styles.tierExplanationLabel}>
+                      {tier.label}
+                    </Text>
                     <Text
                       style={[
                         styles.tierExplanationName,
@@ -205,7 +318,7 @@ export default function MWIScreen({ navigation }: MWIScreenProps) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#0D3B3B',
+    backgroundColor: "#0D3B3B",
   },
   scrollContent: {
     paddingBottom: 40,
@@ -220,30 +333,30 @@ const styles = StyleSheet.create({
   },
   backText: {
     fontSize: 16,
-    color: '#818cf8',
-    fontWeight: '500',
+    color: "#818cf8",
+    fontWeight: "500",
   },
   title: {
     fontSize: 28,
-    fontWeight: '700',
-    color: '#fff',
+    fontWeight: "700",
+    color: "#fff",
     marginBottom: 4,
   },
   lastUpdated: {
     fontSize: 14,
-    color: '#94a3b8',
+    color: "#94a3b8",
   },
   tierCard: {
     marginHorizontal: 20,
-    backgroundColor: '#fff',
+    backgroundColor: "#fff",
     borderRadius: 20,
     padding: 32,
-    alignItems: 'center',
+    alignItems: "center",
     marginBottom: 16,
   },
   tierBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     paddingHorizontal: 20,
     paddingVertical: 10,
     borderRadius: 24,
@@ -255,97 +368,122 @@ const styles = StyleSheet.create({
   },
   tierBadgeText: {
     fontSize: 20,
-    fontWeight: '700',
+    fontWeight: "700",
   },
   tierName: {
     fontSize: 24,
-    fontWeight: '700',
-    color: '#1e293b',
+    fontWeight: "700",
+    color: "#1e293b",
     marginBottom: 8,
   },
   tierDesc: {
     fontSize: 15,
-    color: '#64748b',
-    textAlign: 'center',
+    color: "#64748b",
+    textAlign: "center",
     lineHeight: 22,
+  },
+  metabolicAgeRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginTop: 16,
+    gap: 8,
+  },
+  metabolicAgeLabel: {
+    fontSize: 14,
+    color: "#64748b",
+  },
+  metabolicAgeValue: {
+    fontSize: 20,
+    fontWeight: "700",
+    color: "#0D3B3B",
+  },
+  metabolicAgeDelta: {
+    fontSize: 14,
+    fontWeight: "600",
+  },
+  metabolicAgeYounger: {
+    color: "#22c55e",
+  },
+  metabolicAgeOlder: {
+    color: "#ef4444",
   },
   recoveryCard: {
     marginHorizontal: 20,
-    backgroundColor: '#1e3a3a',
+    backgroundColor: "#1e3a3a",
     borderRadius: 16,
     padding: 20,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
     marginBottom: 16,
   },
   recoveryLabel: {
     fontSize: 14,
-    color: '#94a3b8',
+    color: "#94a3b8",
   },
   recoveryValue: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
   },
   recoveryChange: {
     fontSize: 28,
-    fontWeight: '700',
+    fontWeight: "700",
   },
   recoveryUp: {
-    color: '#22c55e',
+    color: "#22c55e",
   },
   recoveryDown: {
-    color: '#ef4444',
+    color: "#ef4444",
   },
   accuracyCard: {
     marginHorizontal: 20,
-    backgroundColor: '#fff',
+    backgroundColor: "#fff",
     borderRadius: 16,
     padding: 20,
     marginBottom: 16,
   },
   accuracyHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     marginBottom: 12,
   },
   accuracyLabel: {
     fontSize: 16,
-    fontWeight: '600',
-    color: '#1e293b',
+    fontWeight: "600",
+    color: "#1e293b",
   },
   accuracyValue: {
     fontSize: 24,
-    fontWeight: '700',
-    color: '#0D3B3B',
+    fontWeight: "700",
+    color: "#0D3B3B",
   },
   accuracyBar: {
     height: 8,
-    backgroundColor: '#e2e8f0',
+    backgroundColor: "#e2e8f0",
     borderRadius: 4,
     marginBottom: 12,
   },
   accuracyBarFill: {
-    height: '100%',
-    backgroundColor: '#6366f1',
+    height: "100%",
+    backgroundColor: "#6366f1",
     borderRadius: 4,
   },
   accuracyHint: {
     fontSize: 13,
-    color: '#94a3b8',
+    color: "#94a3b8",
     marginBottom: 16,
   },
   accuracyPrompts: {
-    flexDirection: 'row',
+    flexDirection: "row",
     gap: 12,
   },
   accuracyPrompt: {
     flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#f1f5f9',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#f1f5f9",
     paddingVertical: 12,
     borderRadius: 12,
   },
@@ -355,83 +493,83 @@ const styles = StyleSheet.create({
   },
   accuracyPromptText: {
     fontSize: 14,
-    color: '#475569',
-    fontWeight: '500',
+    color: "#475569",
+    fontWeight: "500",
   },
   trendCard: {
     marginHorizontal: 20,
-    backgroundColor: '#fff',
+    backgroundColor: "#fff",
     borderRadius: 16,
     padding: 20,
     marginBottom: 16,
   },
   trendLabel: {
     fontSize: 16,
-    fontWeight: '600',
-    color: '#1e293b',
+    fontWeight: "600",
+    color: "#1e293b",
     marginBottom: 12,
   },
   trendBar: {
     height: 12,
-    backgroundColor: '#e2e8f0',
+    backgroundColor: "#e2e8f0",
     borderRadius: 6,
     marginBottom: 8,
   },
   trendBarFill: {
-    height: '100%',
-    backgroundColor: '#6366f1',
+    height: "100%",
+    backgroundColor: "#6366f1",
     borderRadius: 6,
   },
   trendLabels: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    justifyContent: "space-between",
   },
   trendMin: {
     fontSize: 12,
-    color: '#ef4444',
+    color: "#ef4444",
   },
   trendMax: {
     fontSize: 12,
-    color: '#22c55e',
+    color: "#22c55e",
   },
   recommendationCard: {
     marginHorizontal: 20,
-    backgroundColor: '#fef3c7',
+    backgroundColor: "#fef3c7",
     borderRadius: 16,
     padding: 20,
     marginBottom: 16,
   },
   recommendationLabel: {
     fontSize: 14,
-    fontWeight: '600',
-    color: '#92400e',
+    fontWeight: "600",
+    color: "#92400e",
     marginBottom: 8,
   },
   recommendationText: {
     fontSize: 15,
-    color: '#78350f',
+    color: "#78350f",
     lineHeight: 22,
   },
   faqSection: {
     marginHorizontal: 20,
-    backgroundColor: '#1e3a3a',
+    backgroundColor: "#1e3a3a",
     borderRadius: 16,
-    overflow: 'hidden',
+    overflow: "hidden",
   },
   faqHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
     padding: 20,
   },
   faqTitle: {
     fontSize: 16,
-    fontWeight: '600',
-    color: '#fff',
+    fontWeight: "600",
+    color: "#fff",
   },
   faqArrow: {
     fontSize: 24,
-    color: '#94a3b8',
+    color: "#94a3b8",
   },
   faqContent: {
     paddingHorizontal: 20,
@@ -441,8 +579,8 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   tierExplanationHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     marginBottom: 4,
   },
   tierExplanationEmoji: {
@@ -451,16 +589,16 @@ const styles = StyleSheet.create({
   },
   tierExplanationLabel: {
     fontSize: 14,
-    color: '#94a3b8',
+    color: "#94a3b8",
     marginRight: 8,
   },
   tierExplanationName: {
     fontSize: 14,
-    fontWeight: '600',
+    fontWeight: "600",
   },
   tierExplanationDesc: {
     fontSize: 13,
-    color: '#94a3b8',
+    color: "#94a3b8",
     lineHeight: 18,
     marginLeft: 24,
   },

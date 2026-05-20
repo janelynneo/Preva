@@ -11,6 +11,14 @@ import { StorageService } from "../services/storage";
 import { TeamService } from "../services/team";
 import { getDailyInsight, getDailyQuote } from "../services/insights";
 import { CheckIn, UserProfile } from "../services/storage";
+import { computeRecoveryScore } from "../services/health";
+import {
+  fireReEngagementHook,
+  scheduleSingaporeHooks,
+  scheduleSeatedNudges,
+  fireSeatedNudge,
+} from "../services/notifications";
+import MusicPlayer from "../components/MusicPlayer";
 
 const { width } = Dimensions.get("window");
 const BASELINE_DAYS = 28;
@@ -25,6 +33,10 @@ function getWeekRange(): { label: string } {
 }
 
 export default function WelcomeScreen({ navigation }: { navigation: any }) {
+  // Tab navigator's navigation can't reach Stack screens directly
+  // Use getParent() for Stack-level navigation
+  const stackNav = navigation.getParent?.() ?? navigation;
+  const [loading, setLoading] = useState(true);
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [checkIns, setCheckIns] = useState<CheckIn[]>([]);
   const [streak, setStreak] = useState(0);
@@ -38,60 +50,151 @@ export default function WelcomeScreen({ navigation }: { navigation: any }) {
   const [dailyInsight, setDailyInsight] = useState("");
   const [quote, setQuote] = useState("");
   const [weekRange, setWeekRange] = useState(getWeekRange());
+  const [mwiScore, setMwiScore] = useState<number | null>(null);
 
   useEffect(() => {
     loadData();
+    // Fire re-engagement hook if user has been inactive
+    fireReEngagementHook().catch(console.warn);
+    // Set up contextual hooks (Friday hawker, Monday morning, seated nudges)
+    scheduleSingaporeHooks().catch(console.warn);
+    scheduleSeatedNudges().catch(console.warn);
+    // Safety timeout: ensure we always exit loading state
+    const timeout = setTimeout(() => {
+      setLoading(false);
+    }, 10000); // 10 second max load time
+    return () => clearTimeout(timeout);
   }, []);
 
+  // Helper: wrap any async operation with a timeout
+  function withTimeout<T>(
+    promise: Promise<T>,
+    ms: number,
+    fallback: T,
+  ): Promise<T> {
+    return Promise.race([
+      promise,
+      new Promise<T>((resolve) => setTimeout(() => resolve(fallback), ms)),
+    ]);
+  }
+
   async function loadData() {
-    const profileData = await StorageService.getProfile();
-    const checkInsData = await StorageService.getCheckIns();
-    const streakData = await StorageService.getStreak();
-    let days = await StorageService.getDaysSinceSignup();
-    // Calculate days from signup date if not already stored
-    if (days === 0) {
-      const signupDate = await StorageService.getSignupDate();
-      if (signupDate) {
-        const signup = new Date(signupDate);
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-        signup.setHours(0, 0, 0, 0);
-        days = Math.floor(
-          (today.getTime() - signup.getTime()) / (1000 * 60 * 60 * 24),
-        );
-        if (days > 0) {
-          await StorageService.saveStreak(days);
+    try {
+      const profileData = await StorageService.getProfile();
+      const checkInsData = await StorageService.getCheckIns();
+      const streakData = await StorageService.getStreak();
+      let days = await StorageService.getDaysSinceSignup();
+      // Calculate days from signup date if not already stored
+      if (days === 0) {
+        const signupDate = await StorageService.getSignupDate();
+        if (signupDate) {
+          const signup = new Date(signupDate);
+          const today = new Date();
+          today.setHours(0, 0, 0, 0);
+          signup.setHours(0, 0, 0, 0);
+          days = Math.floor(
+            (today.getTime() - signup.getTime()) / (1000 * 60 * 60 * 24),
+          );
+          if (days > 0) {
+            await StorageService.saveStreak(days);
+          }
         }
       }
+
+      // Team data with timeout - don't block if team service is slow
+      const [teamData, progress] = await Promise.all([
+        withTimeout(TeamService.getTeam(), 3000, null),
+        withTimeout(TeamService.getTeamProgress(), 3000, {
+          current: 0,
+          goal: 0,
+          percent: 0,
+        }),
+      ]);
+
+      setProfile(profileData);
+      setCheckIns(checkInsData);
+      setStreak(streakData);
+      setDaysSinceSignup(days);
+      setTeam(teamData);
+      setTeamProgress(progress);
+
+      // Compute MWI score from HealthKit HRV data, fallback to check-in based score
+      let score: number | null = null;
+      try {
+        const hrvScore = await withTimeout(computeRecoveryScore(), 5000, 0);
+        if (hrvScore > 0) {
+          score = hrvScore;
+        }
+      } catch {
+        // HealthKit not available, will use check-in based fallback
+      }
+      // Fallback: compute from check-in data if HRV not available
+      if (score === null && checkInsData.length > 0) {
+        const recent7 = checkInsData.slice(-7);
+        const avgSleep =
+          recent7.reduce((s, c) => s + c.sleepQuality, 0) / recent7.length;
+        const avgEnergy =
+          recent7.reduce((s, c) => s + c.energy, 0) / recent7.length;
+        const avgStress =
+          recent7.reduce((s, c) => s + c.stress, 0) / recent7.length;
+        // Simple MWI: sleep*30 + energy*25 + (5-stress)*20 + streak*25/100, capped at 100
+        const stressPenalty = Math.max(0, 5 - avgStress);
+        const checkInScore = Math.min(
+          100,
+          Math.round(
+            (avgSleep / 5) * 30 +
+              (avgEnergy / 5) * 25 +
+              (stressPenalty / 5) * 20 +
+              Math.min(streakData, 7) * (25 / 7),
+          ),
+        );
+        score = checkInScore;
+      }
+      setMwiScore(score);
+
+      // Fire a seated nudge if user shows high stress + low energy patterns
+      if (checkInsData.length >= 3) {
+        const recent3 = checkInsData.slice(-3);
+        const avgStress =
+          recent3.reduce((s, c) => s + c.stress, 0) / recent3.length;
+        const avgEnergy =
+          recent3.reduce((s, c) => s + c.energy, 0) / recent3.length;
+        if (avgStress > 3.5 || avgEnergy < 2.5) {
+          fireSeatedNudge().catch(console.warn);
+        }
+      }
+
+      if (profileData) {
+        const insight = getDailyInsight({
+          ethnicity: profileData.ethnicity,
+          familyHistoryT2D: profileData.familyHistoryT2D,
+          wearableConnected: profileData.wearableConnected,
+          recentCheckIns: checkInsData,
+          daysSinceSignup: days,
+        });
+        setDailyInsight(insight);
+      }
+
+      setQuote(getDailyQuote());
+      setWeekRange(getWeekRange());
+    } catch (err) {
+      console.warn("WelcomeScreen loadData failed:", err);
+    } finally {
+      setLoading(false);
     }
-    const teamData = await TeamService.getTeam();
-    const progress = await TeamService.getTeamProgress();
+  }
 
-    setProfile(profileData);
-    setCheckIns(checkInsData);
-    setStreak(streakData);
-    setDaysSinceSignup(days);
-    setTeam(teamData);
-    setTeamProgress(progress);
-
-    if (profileData) {
-      const insight = getDailyInsight({
-        ethnicity: profileData.ethnicity,
-        familyHistoryT2D: profileData.familyHistoryT2D,
-        wearableConnected: profileData.wearableConnected,
-        recentCheckIns: checkInsData,
-        daysSinceSignup: days,
-      });
-      setDailyInsight(insight);
-    }
-
-    setQuote(getDailyQuote());
-    setWeekRange(getWeekRange());
+  if (loading) {
+    return (
+      <View style={styles.loadingContainer}>
+        <Text style={styles.logo}>Metabo</Text>
+      </View>
+    );
   }
 
   const isOnboarded = profile !== null;
   const name = profile?.name?.split(" ")[0] || "";
-  const weekNum = Math.ceil(Math.max(1, daysSinceSignup) / 7);
+  const weekNum = Math.max(1, Math.floor((daysSinceSignup - 1) / 7) + 1);
   const isBaseline = daysSinceSignup > 0 && daysSinceSignup <= BASELINE_DAYS;
   const daysLeft = Math.max(0, BASELINE_DAYS - daysSinceSignup);
 
@@ -202,7 +305,7 @@ export default function WelcomeScreen({ navigation }: { navigation: any }) {
 
           <TouchableOpacity
             style={styles.ctaButton}
-            onPress={() => navigation.navigate("Onboarding")}
+            onPress={() => stackNav.navigate("Onboarding")}
           >
             <Text style={styles.ctaButtonText}>Start My Baseline</Text>
           </TouchableOpacity>
@@ -229,6 +332,7 @@ export default function WelcomeScreen({ navigation }: { navigation: any }) {
               <Text style={styles.greeting}>
                 {getGreeting()}, {name}!
               </Text>
+              {quote ? <Text style={styles.quoteInline}>"{quote}"</Text> : null}
               <Text style={styles.dayCounter}>
                 Day {daysSinceSignup} of {BASELINE_DAYS} baseline
                 {isBaseline && daysLeft > 0 ? ` · ${daysLeft} days to go` : ""}
@@ -268,7 +372,7 @@ export default function WelcomeScreen({ navigation }: { navigation: any }) {
           </View>
           <TouchableOpacity
             style={styles.weekSummaryLink}
-            onPress={() => navigation.navigate("WeeklySummary")}
+            onPress={() => stackNav.navigate("WeeklySummary")}
           >
             <Text style={styles.weekSummaryLinkText}>
               View full weekly summary →
@@ -292,13 +396,15 @@ export default function WelcomeScreen({ navigation }: { navigation: any }) {
         ) : (
           <TouchableOpacity
             style={styles.mwiBanner}
-            onPress={() => navigation.navigate("MWI")}
+            onPress={() => stackNav.navigate("MWI")}
           >
             <Text style={styles.mwiBannerLabel}>
               MY METABOLIC WELLNESS INDEX
             </Text>
             <View style={styles.mwiRow}>
-              <Text style={styles.mwiPercent}>—</Text>
+              <Text style={styles.mwiPercent}>
+                {mwiScore !== null ? `${mwiScore}` : "—"}
+              </Text>
               <View style={styles.mwiMeta}>
                 <Text style={styles.mwiSub}>
                   Based on {daysSinceSignup} days of data
@@ -367,13 +473,13 @@ export default function WelcomeScreen({ navigation }: { navigation: any }) {
             <View style={styles.teamEmptyButtons}>
               <TouchableOpacity
                 style={styles.teamCreateBtn}
-                onPress={() => navigation.navigate("CreateTeam")}
+                onPress={() => stackNav.navigate("CreateTeam")}
               >
                 <Text style={styles.teamCreateBtnText}>Create Team</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={styles.teamJoinBtn}
-                onPress={() => navigation.navigate("JoinTeam")}
+                onPress={() => stackNav.navigate("JoinTeam")}
               >
                 <Text style={styles.teamJoinBtnText}>Join with Code</Text>
               </TouchableOpacity>
@@ -385,6 +491,10 @@ export default function WelcomeScreen({ navigation }: { navigation: any }) {
         <View style={styles.quoteCard}>
           <Text style={styles.quoteText}>"{quote}"</Text>
         </View>
+
+        {/* Ambient Music */}
+        <Text style={styles.sectionLabel}>AMBIENT SOUND</Text>
+        <MusicPlayer />
 
         {/* Action Buttons */}
         <View style={styles.actions}>
@@ -408,6 +518,12 @@ export default function WelcomeScreen({ navigation }: { navigation: any }) {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#f8fafc" },
+  loadingContainer: {
+    flex: 1,
+    backgroundColor: "#f8fafc",
+    justifyContent: "center",
+    alignItems: "center",
+  },
   scrollContent: { paddingBottom: 100 },
 
   // ── First-time user ──────────────────────────────
@@ -497,6 +613,14 @@ const styles = StyleSheet.create({
     alignItems: "flex-start",
   },
   greeting: { fontSize: 26, fontWeight: "700", color: "#1e293b" },
+  quoteInline: {
+    fontSize: 13,
+    color: "#64748b",
+    fontStyle: "italic",
+    marginTop: 6,
+    marginRight: 40,
+    lineHeight: 20,
+  },
   dayCounter: {
     fontSize: 14,
     color: "#6366f1",
@@ -700,13 +824,19 @@ const styles = StyleSheet.create({
   teamJoinBtnText: { color: "#6366f1", fontWeight: "600", fontSize: 14 },
 
   // Quote
-  quoteCard: { marginHorizontal: 20, marginTop: 16, padding: 20 },
+  quoteCard: {
+    marginHorizontal: 20,
+    marginTop: 16,
+    backgroundColor: "#0D3B3B",
+    borderRadius: 12,
+    padding: 16,
+  },
   quoteText: {
-    fontSize: 15,
-    color: "#64748b",
+    fontSize: 14,
+    color: "#e0f2fe",
     fontStyle: "italic",
     textAlign: "center",
-    lineHeight: 24,
+    lineHeight: 22,
   },
 
   // Actions

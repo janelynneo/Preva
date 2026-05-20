@@ -157,6 +157,70 @@ export async function saveStepData(steps: StepCount[]): Promise<void> {
 }
 
 /**
+ * Estimates metabolic age based on HRV baseline, resting heart rate, sleep, and activity.
+ * HRV (SDNN) is the primary biological marker — higher HRV = lower metabolic age.
+ * Uses population averages by age bracket to compute a delta from chronological age.
+ */
+export async function computeMetabolicAge(
+  chronologicalAge: number,
+  recentAvgSleepQuality: number, // 1–5
+): Promise<{ metabolicAge: number; delta: number }> {
+  const hrvSamples = await getHRVSamples();
+  const rhrSamples = await getRestingHeartRate();
+
+  if (hrvSamples.length < 3) {
+    return { metabolicAge: chronologicalAge, delta: 0 };
+  }
+
+  // Average HRV over the baseline period
+  const avgHrv =
+    hrvSamples.reduce((s, h) => s + h.sdnnMs, 0) / hrvSamples.length;
+
+  // Latest resting HR
+  const latestRhr = rhrSamples[0]?.bpm ?? 72;
+
+  // Population HRV reference by age (SDNN in ms, approximate normative values)
+  const hrvByAge: Record<string, number> = {
+    "20": 55,
+    "25": 50,
+    "30": 45,
+    "35": 42,
+    "40": 38,
+    "45": 35,
+    "50": 32,
+    "55": 29,
+    "60": 27,
+    "65": 24,
+  };
+  const ageKey = String(
+    Object.keys(hrvByAge)
+      .map(Number)
+      .filter((k) => k <= chronologicalAge)
+      .pop() ?? 40,
+  );
+  const populationAvgHrv = hrvByAge[ageKey] ?? 35;
+
+  // HRV delta: positive = biologically younger, negative = older
+  const hrvDelta = ((avgHrv - populationAvgHrv) / populationAvgHrv) * 10;
+
+  // Sleep adjustment: each point below 3 costs ~1 year
+  const sleepAdjustment = (recentAvgSleepQuality - 3) * 1.2;
+
+  // RHR adjustment: each bpm above 60 costs ~0.3 years
+  const rhrAdjustment = Math.max(0, (latestRhr - 60) * 0.3);
+
+  const metabolicAge = Math.round(
+    chronologicalAge - hrvDelta - sleepAdjustment + rhrAdjustment,
+  );
+  const delta = metabolicAge - chronologicalAge;
+
+  return {
+    metabolicAge: Math.max(18, Math.min(90, metabolicAge)),
+    delta: Math.max(-20, Math.min(20, delta)),
+  };
+}
+
+/**
  * Computes a recovery score (0–100) from today's HRV relative to your 14-day baseline.
  * Higher HRV = better recovery.
  */
