@@ -1,9 +1,10 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { StatusBar } from "expo-status-bar";
 import { NavigationContainer } from "@react-navigation/native";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
-import { Text, View } from "react-native";
+import { Text, View, ActivityIndicator } from "react-native";
+import { StorageService } from "./services/storage";
 
 // Screens
 import WelcomeScreen from "./screens/WelcomeScreen";
@@ -21,18 +22,15 @@ const Stack = createNativeStackNavigator();
 
 function TabIcon({ label, focused }: { label: string; focused: boolean }) {
   const icons: Record<string, string> = {
-    Home: "👋",
+    Home: "🏠",
     "Check-In": "📝",
     Profile: "👤",
     Coach: "🤖",
   };
   return (
-    <View style={{ alignItems: "center" }}>
-      <Text style={{ fontSize: 22 }}>{icons[label] || "●"}</Text>
-      <Text style={{ fontSize: 10, color: focused ? "#6366f1" : "#999" }}>
-        {label}
-      </Text>
-    </View>
+    <Text style={{ fontSize: 24, opacity: focused ? 1 : 0.5 }}>
+      {icons[label] || "●"}
+    </Text>
   );
 }
 
@@ -59,11 +57,37 @@ function HomeTabs() {
 }
 
 export default function App() {
+  const [initialRoute, setInitialRoute] = useState<string | null>(null);
+
+  useEffect(() => {
+    checkProfile();
+  }, []);
+
+  async function checkProfile() {
+    const profile = await StorageService.getProfile();
+    setInitialRoute(profile ? "HomeTabs" : "Onboarding");
+  }
+
+  if (initialRoute === null) {
+    return (
+      <View
+        style={{
+          flex: 1,
+          justifyContent: "center",
+          alignItems: "center",
+          backgroundColor: "#f8fafc",
+        }}
+      >
+        <ActivityIndicator size="large" color="#6366f1" />
+      </View>
+    );
+  }
+
   return (
     <NavigationContainer>
       <StatusBar style="dark" />
       <Stack.Navigator
-        initialRouteName="HomeTabs"
+        initialRouteName={initialRoute}
         screenOptions={{
           headerShown: false,
         }}
