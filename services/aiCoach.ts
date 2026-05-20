@@ -1,10 +1,9 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { StorageService } from "./storage";
+import { config } from "./config";
 
 const AI_HISTORY_KEY = "metabo_ai_history";
-const OLLAMA_URL =
-  process.env.OLLAMA_URL ?? "http://localhost:11434/v1/chat/completions";
-const MODEL = process.env.OLLAMA_MODEL ?? "mistral:7b";
+const FETCH_TIMEOUT_MS = 20000;
 
 export interface AIMessage {
   id: string;
@@ -13,7 +12,7 @@ export interface AIMessage {
   timestamp: number;
 }
 
-async function buildContext(): Promise<string> {
+async function buildSystemPrompt(): Promise<string> {
   const profile = await StorageService.getProfile();
   const checkIns = await StorageService.getCheckIns();
   const streak = await StorageService.getStreak();
@@ -23,8 +22,7 @@ async function buildContext(): Promise<string> {
   ctx += `\n\nGuidelines:`;
   ctx += `\n- Be conversational, empathetic, and practical`;
   ctx += `\n- Focus on metabolic wellness: sleep quality, recovery, hawker meal choices, activity, stress management`;
-  ctx += `\n- Never focus on weight or appearance — redirect to metabolic health`;
-  ctx += `\n- If someone expresses body image distress, acknowledge their feelings and reframe around health`;
+  ctx += `\n- Never focus on weight or appearance — redirect to health`;
   ctx += `\n- Give Singapore-specific advice (hawker centres, humidity, desk-bound work)`;
   ctx += `\n- Keep responses concise (2-4 sentences)`;
   ctx += `\n- If asked medical questions, deflect appropriately`;
@@ -54,49 +52,103 @@ async function buildContext(): Promise<string> {
 
 export const AICoachService = {
   async sendMessage(userText: string): Promise<{ response: string }> {
+    const name =
+      (await StorageService.getProfile())?.name?.split(" ")[0] ?? "friend";
+    const systemPrompt = await buildSystemPrompt();
     const history = await this.loadHistory();
-    const profile = await StorageService.getProfile();
-    const systemPrompt = await buildContext();
 
-    const messages: { role: string; content: string }[] = history
-      .filter((m) => m.role === "user" || m.role === "assistant")
-      .map((m) => ({
+    const messages: { role: string; content: string }[] = [
+      { role: "system", content: systemPrompt },
+    ];
+
+    // Include conversation history (skipping the welcome message if present)
+    const convHistory = history.filter(
+      (m) => m.role === "user" || m.role === "assistant",
+    );
+    messages.push(
+      ...convHistory.map((m) => ({
         role: m.role as "user" | "assistant",
         content: m.content,
-      }));
+      })),
+    );
 
+    // Current user message
     messages.push({ role: "user", content: userText });
 
-    const name = profile?.name?.split(" ")[0] || "friend";
-
     try {
-      const response = await fetch(OLLAMA_URL, {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
+
+      const response = await fetch(config.ollamaUrl, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          model: MODEL,
-          messages: [{ role: "system", content: systemPrompt }, ...messages],
-          max_tokens: 300,
+          model: config.ollamaModel,
+          messages,
+          max_tokens: 400,
+          stream: false,
         }),
+        signal: controller.signal,
       });
 
+      clearTimeout(timeoutId);
+
       if (!response.ok) {
-        throw new Error(`Ollama error: ${response.status}`);
+        const status = response.status;
+        let detail = "";
+        try {
+          const errBody = await response.json();
+          detail = errBody.error ?? "";
+        } catch {}
+        console.error(`AICoach: Ollama HTTP ${status} — ${detail}`);
+        if (status === 404) {
+          return {
+            response: `Hey ${name}, I'm having trouble finding the AI model. Ask your app administrator to check that Ollama is running with "mistral:7b" downloaded.`,
+          };
+        }
+        if (status === 401 || status === 403) {
+          return {
+            response: `Hey ${name}, there's an authentication issue with the AI service. Please check the app configuration.`,
+          };
+        }
+        throw new Error(`HTTP ${status}: ${detail}`);
       }
 
       const data = await response.json();
       const text = data.choices?.[0]?.message?.content;
 
-      if (!text) {
+      if (!text || text.trim() === "") {
+        console.warn("AICoach: empty response from Ollama");
         return {
           response: `Hey ${name}, I'm having a little trouble thinking right now — could you try again in a moment?`,
         };
       }
 
       return { response: text.trim() };
-    } catch {
+    } catch (err) {
+      const isAbort = err instanceof Error && err.name === "AbortError";
+      const isNetworkErr =
+        err instanceof TypeError &&
+        err.message.includes("Network request failed");
+
+      console.error(
+        `AICoach: ${isAbort ? "timeout" : "request failed"} — ${
+          err instanceof Error ? err.message : String(err)
+        } | URL: ${config.ollamaUrl}`,
+      );
+
+      if (isAbort) {
+        return {
+          response: `Hey ${name}, the request timed out — Ollama might be loading a large model. Try again in a few seconds, or restart Ollama on your machine.`,
+        };
+      }
+      if (isNetworkErr) {
+        return {
+          response: `Hey ${name}, I can't reach the AI service. Make sure Ollama is running on your computer at 192.168.1.204, and your phone is on the same Wi-Fi network.`,
+        };
+      }
       return {
-        response: `Hey ${name}, I'm having a little trouble thinking right now — could you try again in a moment?`,
+        response: `Hey ${name}, something went wrong on my end. Could you try again in a moment?`,
       };
     }
   },
@@ -111,9 +163,13 @@ export const AICoachService = {
   },
 
   async saveMessage(message: AIMessage): Promise<void> {
-    const history = await this.loadHistory();
-    history.push(message);
-    await AsyncStorage.setItem(AI_HISTORY_KEY, JSON.stringify(history));
+    try {
+      const history = await this.loadHistory();
+      history.push(message);
+      await AsyncStorage.setItem(AI_HISTORY_KEY, JSON.stringify(history));
+    } catch (err) {
+      console.warn("AICoach: failed to save message", err);
+    }
   },
 
   async clearHistory(): Promise<void> {
