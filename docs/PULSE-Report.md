@@ -1,6 +1,7 @@
 # Pulse by MetaboApp — Product Report
 
-**Repository**: https://github.com/janelynneo/Preva/tree/pulso
+**App Repository (pulso branch)**: https://github.com/janelynneo/Preva/tree/pulso
+**Analysis & Documentation (main branch)**: https://github.com/janelynneo/Preva/tree/main
 **Version**: 1.0.0
 **Date**: 2026-05-20
 **Audience**: Business Manager · End User · Developer
