@@ -2,7 +2,7 @@
 
 ## What this is
 
-MetaboApp is a daily metabolic wellness companion for Singapore desk workers. Built with Expo (React Native), it tracks sleep, recovery (HRV), hawker habits, and stress through daily check-ins, Apple Watch HealthKit integration, and an AI Coach powered by Ollama.
+Pulse is a daily metabolic wellness companion for Asian desk workers. Built with Expo (React Native), it tracks sleep, recovery (HRV), meal habits, and stress through daily check-ins, Apple Watch HealthKit integration, and an AI Coach powered by Ollama.
 
 ## Quick Start
 

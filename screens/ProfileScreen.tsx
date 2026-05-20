@@ -11,6 +11,11 @@ import {
 } from "react-native";
 import { StatusBar } from "expo-status-bar";
 import { StorageService, UserProfile } from "../services/storage";
+import {
+  requestHealthKitAuthorization,
+  refreshAuthorizationStatus,
+  AuthorizationStatus,
+} from "../services/health";
 
 interface ProfileScreenProps {
   navigation?: any;
@@ -22,6 +27,7 @@ export default function ProfileScreen({ navigation }: ProfileScreenProps) {
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [avatar, setAvatar] = useState("🧑");
   const [showAvatarPicker, setShowAvatarPicker] = useState(false);
+  const [wearableLoading, setWearableLoading] = useState(false);
   const [notifications, setNotifications] = useState({
     morning: true,
     evening: true,
@@ -36,8 +42,15 @@ export default function ProfileScreen({ navigation }: ProfileScreenProps) {
     try {
       const data = await StorageService.getProfile();
       if (data) {
-        setProfile(data);
-        if (data.avatar) setAvatar(data.avatar);
+        // Re-check auth status in case user toggled it in iOS Settings
+        const authStatus = await refreshAuthorizationStatus();
+        const updated = {
+          ...data,
+          wearableConnected: authStatus === "authorized",
+        };
+        await StorageService.saveProfile(updated);
+        setProfile(updated);
+        if (updated.avatar) setAvatar(updated.avatar);
       }
     } catch (error) {
       console.warn("ProfileScreen: failed to load profile", error);
@@ -68,6 +81,29 @@ export default function ProfileScreen({ navigation }: ProfileScreenProps) {
       exportedAt: new Date().toISOString(),
     };
     Alert.alert("Data Export", JSON.stringify(data, null, 2));
+  };
+
+  const handleWearableToggle = async (connect: boolean) => {
+    if (!connect) {
+      // Can't disconnect without going to iOS Settings
+      return;
+    }
+    setWearableLoading(true);
+    try {
+      const status = await requestHealthKitAuthorization();
+      if (profile) {
+        const updated = {
+          ...profile,
+          wearableConnected: status === "authorized",
+        };
+        await StorageService.saveProfile(updated);
+        setProfile(updated);
+      }
+    } catch {
+      Alert.alert("Connection Failed", "Could not connect to Apple Watch.");
+    } finally {
+      setWearableLoading(false);
+    }
   };
 
   const handleSignOut = () => {
@@ -216,14 +252,19 @@ export default function ProfileScreen({ navigation }: ProfileScreenProps) {
               <View style={styles.settingInfo}>
                 <Text style={styles.settingLabel}>Wearable device</Text>
                 <Text style={styles.settingDesc}>
-                  {profile?.wearableConnected ? "Connected" : "Not connected"}
+                  {wearableLoading
+                    ? "Connecting..."
+                    : profile?.wearableConnected
+                      ? "Connected"
+                      : "Tap to connect Apple Watch"}
                 </Text>
               </View>
               <Switch
                 value={profile?.wearableConnected || false}
-                onValueChange={() => {}}
+                onValueChange={(val) => handleWearableToggle(val)}
                 trackColor={{ false: "#334d4d", true: "#6366f1" }}
                 thumbColor="#fff"
+                disabled={wearableLoading}
               />
             </View>
             <View style={styles.divider} />

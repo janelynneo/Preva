@@ -2,7 +2,7 @@
 
 ## Overview
 
-MetaboApp is a daily metabolic wellness companion for Singapore desk workers. It tracks sleep, recovery, hawker habits, and stress through daily check-ins and Apple Watch integration.
+Pulse is a daily metabolic wellness companion for Asian desk workers. It tracks sleep, recovery, meal habits, and stress through daily check-ins and Apple Watch integration.
 
 **Tech stack:** Expo SDK 54, React Native 0.81.5 (New Architecture), TypeScript, AsyncStorage, Ollama (local AI)
 
@@ -19,7 +19,7 @@ MetaboApp is a daily metabolic wellness companion for Singapore desk workers. It
 - App logo + tagline
 - MWI explanation card (hero card with mock stats)
 - "How it works" feature list
-- Benefits card (hawker culture, sleep-energy link, T2D prevention, team challenges)
+- Benefits card (healthy eating, sleep-energy link, T2D prevention, team challenges)
 - Motivational quote (navy card `#0D3B3B`)
 - CTA: "Start My Baseline"
 
@@ -68,12 +68,12 @@ MetaboApp is a daily metabolic wellness companion for Singapore desk workers. It
 2. Soreness (None / Mild / Moderate / Severe)
 3. Energy level (● 1–5 dots)
 4. Stress level (● 1–5 dots)
-5. Hawker meals today (stepper 0–10) + optional photo
+5. Healthy meals today (stepper 0–10) + optional photo
 6. Summary + submit
 
 **Success screen:** 🎉 + streak card (live streak count) + personalised message + "Done" → HomeTabs
 
-**Key state:** `sleepQuality`, `soreness`, `energyLevel`, `stressLevel`, `hawkerMeals`, `photoUri`, `saving`, `streak`
+**Key state:** `sleepQuality`, `soreness`, `energyLevel`, `stressLevel`, `healthyMeals`, `photoUri`, `saving`, `streak`
 
 **Persistence:** `StorageService.saveCheckIn()` saves to `metabo_checkins` key in AsyncStorage. Streak is calculated on submit (increments for consecutive days, resets if gap > 1 day). Submit button shows "Saving..." while persisting.
 
@@ -120,13 +120,13 @@ MetaboApp is a daily metabolic wellness companion for Singapore desk workers. It
 
 ### 7. WeeklySummaryScreen (`screens/WeeklySummaryScreen.tsx`)
 
-**Purpose:** 7-day trend view — sleep, energy, stress, hawker meals, recovery.
+**Purpose:** 7-day trend view — sleep, energy, stress, meals, recovery.
 
 **Content:**
 
 - Week range header
 - Bar/trend charts for each metric
-- Hawker meal summary
+- Healthy meal summary
 - Most common soreness
 - Pattern insight ("Your energy tends to drop mid-week")
 
@@ -143,7 +143,7 @@ MetaboApp is a daily metabolic wellness companion for Singapore desk workers. It
 - User profile (name, age, sex, ethnicity)
 - Days since signup + streak
 - Last 7 check-in averages (sleep quality, energy, stress)
-- Hawker meal pattern
+- Healthy meal pattern
 
 **Messages:** Stored in AsyncStorage (`metabo_ai_history`). Clear history option available.
 

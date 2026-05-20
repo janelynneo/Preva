@@ -1,10 +1,10 @@
-# MetaboApp
+# Pulse
 
-Daily metabolic wellness companion for Singapore desk workers. Tracks sleep, recovery (HRV), hawker habits, and stress — with an AI Coach.
+Daily metabolic wellness companion for Asian desk workers. Tracks sleep, recovery (HRV), meal habits, and stress — with an AI Coach.
 
 ## Features
 
-- **Daily Check-In** — 6-step evening log: sleep quality, soreness, energy, stress, hawker meals, optional meal photo
+- **Daily Check-In** — 6-step evening log: sleep quality, soreness, energy, stress, healthy meals, optional meal photo
 - **Apple Watch Integration** — HRV (SDNN), resting heart rate, steps, sleep via native HealthKit bridge
 - **Metabolic Wellness Index** — composite score from 28-day baseline
 - **Metabolic Age** — estimated from HRV baseline, resting heart rate, and sleep quality

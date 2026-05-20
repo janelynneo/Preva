@@ -11,9 +11,9 @@ interface InsightContext {
 const SLEEP_TIPS = [
   "Quality sleep is the foundation of metabolic health — aim for consistent sleep-wake times, even on weekends.",
   "Blue light exposure before bed can suppress melatonin. Consider dimming screens 30 minutes before sleep.",
-  "Singapore's humidity can affect sleep quality. Keep your bedroom well-ventilated and around 24°C.",
+  "Climate and room temperature affect sleep quality. Keep your bedroom well-ventilated and around 24°C.",
   "Even 15 minutes of morning sunlight helps regulate your circadian rhythm and improves sleep quality.",
-  "Late-night hawker meals can disrupt sleep. Try finishing dinner at least 2-3 hours before bed.",
+  "Late-night meals can disrupt sleep. Try finishing dinner at least 2-3 hours before bed.",
 ];
 
 const RECOVERY_TIPS = [
@@ -24,18 +24,18 @@ const RECOVERY_TIPS = [
   "Adequate protein (0.8-1g per kg bodyweight) supports muscle recovery and metabolic function.",
 ];
 
-const HAWKER_TIPS = [
-  "Choose brown rice over white rice at hawker centres — higher fibre means slower glucose absorption.",
-  "Tough to avoid MSG?均衡饮食 (balanced diet) over a week matters more than any single meal.",
-  "Fish soup (sotong/kembung) is a great low-GI protein source at any hawker centre.",
-  "Ask for less oil (少油) — hawker stalls are usually happy to accommodate.",
-  "Mix your vegetables! Many hawker dishes skimp on greens — add a side of kangkung or chye sim.",
+const MEAL_TIPS = [
+  "Choose brown rice over white rice — higher fibre means slower glucose absorption.",
+  "均衡饮食 (balanced diet) over a week matters more than any single meal.",
+  "Fish soup is a great low-GI protein source at any food court or market.",
+  "Ask for less oil (少油) — food stalls are usually happy to accommodate.",
+  "Mix your vegetables! Many dishes skimp on greens — add a side of kangkung or chye sim.",
 ];
 
 const ACTIVITY_TIPS = [
   "Desk-bound all day? Set a timer to stand and stretch every 30 minutes.",
   "Walking to the MRT station instead of the bus? That's 10-15 minutes of incidental exercise.",
-  "Singapore's humidity makes outdoor exercise tough. Try indoor options like shopping malls or a gym.",
+  "Hot or humid weather makes outdoor exercise tough. Try indoor options like gyms or a shaded walking route.",
   "Consistency beats intensity — a 20-minute daily walk is better than one intense workout per week.",
   "Even household chores count! Mopping, gardening, and carrying groceries all add to your daily movement.",
 ];
@@ -150,8 +150,8 @@ const BACK_PAIN_TIPS = [
   "Back pain from sitting? Your hip flexors are probably tight. Try the kneeling hip flexor stretch — hold 30s each side.",
   "If your lower back hurts after sitting: sit on the edge of your chair, both feet flat, lean forward slightly. Re-engages your core.",
   "Strengthen your core = less back pain. Plank for 30 seconds when you wake up. It compounds.",
-  "Singapore humidity makes muscles feel stiffer. Gentle stretching before bed improves sleep quality AND reduces morning stiffness.",
-  "A lumbar support cushion (£20 from Shopee) changes sitting posture completely. Your lower back will notice.",
+  "Humid weather can make muscles feel stiffer. Gentle stretching before bed improves sleep quality AND reduces morning stiffness.",
+  "A lumbar support cushion changes sitting posture completely. Your lower back will notice.",
   "Back pain that travels down your leg? Don't ignore it. Check in with your GP — early intervention matters.",
 ];
 
@@ -269,7 +269,7 @@ export function getPersonalisedInsights(ctx: InsightContext): string[] {
   pool.push(
     ...SLEEP_TIPS,
     ...RECOVERY_TIPS,
-    ...HAWKER_TIPS,
+    ...MEAL_TIPS,
     ...ACTIVITY_TIPS,
     ...STRESS_TIPS,
     ...DESK_POSTURE_TIPS,

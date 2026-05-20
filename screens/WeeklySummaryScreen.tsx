@@ -194,7 +194,7 @@ export default function WeeklySummaryScreen({ navigation }: any) {
     }
     if (totalHawkerMeals > 10) {
       messages.push(
-        "Many hawker meals this week. Balance with plenty of vegetables.",
+        "Many meals out this week. Balance with plenty of vegetables.",
       );
     }
     if (messages.length === 0) {
@@ -240,7 +240,7 @@ export default function WeeklySummaryScreen({ navigation }: any) {
           unit="avg"
         />
         <MetricCard
-          title="Hawker Meals"
+          title="Healthy Meals"
           value={String(totalHawkerMeals)}
           status={totalHawkerMeals > 14 ? "below" : "good"}
         />

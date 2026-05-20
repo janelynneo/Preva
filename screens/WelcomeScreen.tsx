@@ -14,7 +14,7 @@ import { CheckIn, UserProfile } from "../services/storage";
 import { computeRecoveryScore } from "../services/health";
 import {
   fireReEngagementHook,
-  scheduleSingaporeHooks,
+  scheduleAsianContextHooks,
   scheduleSeatedNudges,
   fireSeatedNudge,
 } from "../services/notifications";
@@ -47,6 +47,14 @@ export default function WelcomeScreen({ navigation }: { navigation: any }) {
     goal: 0,
     percent: 0,
   });
+  const [weeklyProgress, setWeeklyProgress] = useState({
+    current: 0,
+    goal: 0,
+    percent: 0,
+    daysLeft: 0,
+  });
+  const [activeChallenges, setActiveChallenges] = useState<any[]>([]);
+  const [memberRankings, setMemberRankings] = useState<any[]>([]);
   const [dailyInsight, setDailyInsight] = useState("");
   const [quote, setQuote] = useState("");
   const [weekRange, setWeekRange] = useState(getWeekRange());
@@ -56,8 +64,8 @@ export default function WelcomeScreen({ navigation }: { navigation: any }) {
     loadData();
     // Fire re-engagement hook if user has been inactive
     fireReEngagementHook().catch(console.warn);
-    // Set up contextual hooks (Friday hawker, Monday morning, seated nudges)
-    scheduleSingaporeHooks().catch(console.warn);
+    // Set up contextual hooks (weekend market food, Monday morning, seated nudges)
+    scheduleAsianContextHooks().catch(console.warn);
     scheduleSeatedNudges().catch(console.warn);
     // Safety timeout: ensure we always exit loading state
     const timeout = setTimeout(() => {
@@ -102,14 +110,23 @@ export default function WelcomeScreen({ navigation }: { navigation: any }) {
       }
 
       // Team data with timeout - don't block if team service is slow
-      const [teamData, progress] = await Promise.all([
-        withTimeout(TeamService.getTeam(), 3000, null),
-        withTimeout(TeamService.getTeamProgress(), 3000, {
-          current: 0,
-          goal: 0,
-          percent: 0,
-        }),
-      ]);
+      const [teamData, progress, weekly, challenges, rankings] =
+        await Promise.all([
+          withTimeout(TeamService.getTeam(), 3000, null),
+          withTimeout(TeamService.getTeamProgress(), 3000, {
+            current: 0,
+            goal: 0,
+            percent: 0,
+          }),
+          withTimeout(TeamService.getWeeklyProgress(), 3000, {
+            current: 0,
+            goal: 0,
+            percent: 0,
+            daysLeft: 0,
+          }),
+          withTimeout(TeamService.getActiveChallenges(), 3000, []),
+          withTimeout(TeamService.getMemberRankings(), 3000, []),
+        ]);
 
       setProfile(profileData);
       setCheckIns(checkInsData);
@@ -117,6 +134,9 @@ export default function WelcomeScreen({ navigation }: { navigation: any }) {
       setDaysSinceSignup(days);
       setTeam(teamData);
       setTeamProgress(progress);
+      setWeeklyProgress(weekly);
+      setActiveChallenges(challenges);
+      setMemberRankings(rankings);
 
       // Compute MWI score from HealthKit HRV data, fallback to check-in based score
       let score: number | null = null;
@@ -231,7 +251,7 @@ export default function WelcomeScreen({ navigation }: { navigation: any }) {
           <View style={styles.heroSection}>
             <Text style={styles.logo}>Metabo</Text>
             <Text style={styles.tagline}>
-              Your daily metabolic wellness companion for Singapore desk workers
+              Your daily metabolic wellness companion for Asian desk workers
             </Text>
           </View>
 
@@ -239,7 +259,7 @@ export default function WelcomeScreen({ navigation }: { navigation: any }) {
             <Text style={styles.heroCardTitle}>What's your MWI?</Text>
             <Text style={styles.heroCardSub}>
               The Metabolic Wellness Index is your personal score — tracking
-              sleep, recovery, activity, and hawker habits to paint a picture of
+              sleep, recovery, activity, and food choices to paint a picture of
               your metabolic health.
             </Text>
             <View style={styles.heroStats}>
@@ -288,7 +308,7 @@ export default function WelcomeScreen({ navigation }: { navigation: any }) {
           <View style={styles.benefitsCard}>
             <Text style={styles.benefitsTitle}>Why track with Metabo?</Text>
             {[
-              "Understand how Singapore's hawker culture affects your energy",
+              "Understand how your food choices affect your energy levels",
               "See how sleep quality connects to your daily performance",
               "T2D prevention — early patterns your doctor won't catch",
               "Compete with friends in a team step challenge",
@@ -445,19 +465,85 @@ export default function WelcomeScreen({ navigation }: { navigation: any }) {
               />
             </View>
             <Text style={styles.teamPercent}>
-              {teamProgress.percent}% of goal
+              {teamProgress.percent}% of collective goal
             </Text>
-            <View style={styles.teamMembers}>
-              {team.members.slice(0, 4).map((m: any, i: number) => (
-                <View key={i} style={styles.teamMember}>
-                  <Text style={styles.teamMemberAvatar}>
-                    {m.avatar || "👤"}
+
+            {/* Weekly progress */}
+            <View style={styles.weeklyRow}>
+              <View style={styles.weeklyStat}>
+                <Text style={styles.weeklyStatValue}>
+                  {weeklyProgress.current.toLocaleString()}
+                </Text>
+                <Text style={styles.weeklyStatLabel}>steps this week</Text>
+              </View>
+              <View style={styles.weeklyDivider} />
+              <View style={styles.weeklyStat}>
+                <Text style={styles.weeklyStatValue}>
+                  {(weeklyProgress.goal / 1000).toLocaleString()}K
+                </Text>
+                <Text style={styles.weeklyStatLabel}>weekly goal</Text>
+              </View>
+              <View style={styles.weeklyDivider} />
+              <View style={styles.weeklyStat}>
+                <Text style={styles.weeklyStatValue}>
+                  {weeklyProgress.daysLeft === 0
+                    ? "Today"
+                    : `${weeklyProgress.daysLeft}d`}
+                </Text>
+                <Text style={styles.weeklyStatLabel}>left</Text>
+              </View>
+            </View>
+
+            {/* Active challenges */}
+            {activeChallenges.length > 0 && (
+              <View style={styles.challengesSection}>
+                {activeChallenges.slice(0, 2).map((challenge: any) => (
+                  <View key={challenge.id} style={styles.challengeRow}>
+                    <Text style={styles.challengeIcon}>
+                      {challenge.type === "steps"
+                        ? "👟"
+                        : challenge.type === "sleep"
+                          ? "🌙"
+                          : "📝"}
+                    </Text>
+                    <View style={styles.challengeInfo}>
+                      <Text style={styles.challengeTitle}>
+                        {challenge.title}
+                      </Text>
+                      <View style={styles.challengeBar}>
+                        <View
+                          style={[
+                            styles.challengeBarFill,
+                            {
+                              width: `${Math.min(
+                                100,
+                                Math.round(
+                                  (challenge.current / challenge.goal) * 100,
+                                ),
+                              )}%`,
+                            },
+                          ]}
+                        />
+                      </View>
+                    </View>
+                  </View>
+                ))}
+              </View>
+            )}
+
+            {/* Member rankings */}
+            <View style={styles.rankingsSection}>
+              <Text style={styles.rankingsTitle}>This Week's Leaderboard</Text>
+              {memberRankings.slice(0, 3).map((member: any, i: number) => (
+                <View key={member.id} style={styles.rankingRow}>
+                  <Text style={styles.rankingPosition}>
+                    {i === 0 ? "🥇" : i === 1 ? "🥈" : "🥉"}
                   </Text>
-                  <Text style={styles.teamMemberName} numberOfLines={1}>
-                    {m.name}
-                  </Text>
-                  <Text style={styles.teamMemberSteps}>
-                    {m.steps.toLocaleString()}
+                  <Text style={styles.rankingAvatar}>{member.avatar}</Text>
+                  <Text style={styles.rankingName}>{member.name}</Text>
+                  <Text style={styles.rankingStreak}>🔥{member.streak}</Text>
+                  <Text style={styles.rankingSteps}>
+                    {member.steps.toLocaleString()}
                   </Text>
                 </View>
               ))}
@@ -467,7 +553,7 @@ export default function WelcomeScreen({ navigation }: { navigation: any }) {
           <View style={styles.teamEmptyCard}>
             <Text style={styles.teamEmptyTitle}>Start a team challenge</Text>
             <Text style={styles.teamEmptySub}>
-              Hit collective goals with friends — walking, hawker choices,
+              Hit collective goals with friends — walking, food choices,
               check-in streaks
             </Text>
             <View style={styles.teamEmptyButtons}>
@@ -783,6 +869,71 @@ const styles = StyleSheet.create({
   teamMemberAvatar: { fontSize: 20, marginBottom: 2 },
   teamMemberName: { fontSize: 11, color: "#64748b", textAlign: "center" },
   teamMemberSteps: { fontSize: 11, fontWeight: "600", color: "#1e293b" },
+
+  // Weekly progress row
+  weeklyRow: {
+    flexDirection: "row",
+    justifyContent: "space-around",
+    paddingVertical: 10,
+    borderTopWidth: 1,
+    borderTopColor: "#eef2ff",
+    marginTop: 4,
+  },
+  weeklyStat: { alignItems: "center" },
+  weeklyStatValue: { fontSize: 18, fontWeight: "700", color: "#0D3B3B" },
+  weeklyStatLabel: { fontSize: 11, color: "#94a3b8", marginTop: 2 },
+  weeklyDivider: { width: 1, backgroundColor: "#e2e8f0" },
+
+  // Challenges
+  challengesSection: { marginTop: 8 },
+  challengeRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 8,
+    backgroundColor: "#f8fafc",
+    borderRadius: 8,
+    padding: 8,
+    gap: 10,
+  },
+  challengeIcon: { fontSize: 18 },
+  challengeInfo: { flex: 1 },
+  challengeTitle: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: "#1e293b",
+    marginBottom: 4,
+  },
+  challengeBar: {
+    height: 4,
+    backgroundColor: "#e2e8f0",
+    borderRadius: 2,
+    overflow: "hidden",
+  },
+  challengeBarFill: {
+    height: "100%",
+    backgroundColor: "#6366f1",
+    borderRadius: 2,
+  },
+
+  // Rankings
+  rankingsSection: { marginTop: 8 },
+  rankingsTitle: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: "#64748b",
+    marginBottom: 8,
+  },
+  rankingRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 6,
+    gap: 8,
+  },
+  rankingPosition: { fontSize: 14, width: 24 },
+  rankingAvatar: { fontSize: 16 },
+  rankingName: { flex: 1, fontSize: 14, color: "#1e293b" },
+  rankingStreak: { fontSize: 12, color: "#94a3b8", marginRight: 8 },
+  rankingSteps: { fontSize: 13, fontWeight: "600", color: "#0D3B3B" },
 
   // Team empty
   teamEmptyCard: {

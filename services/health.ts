@@ -84,6 +84,24 @@ export function getAuthorizationStatus(): AuthorizationStatus {
   return _authStatus;
 }
 
+/**
+ * Re-checks authorization status from native module.
+ * Call this when returning from Settings after a user toggles Health access.
+ */
+export async function refreshAuthorizationStatus(): Promise<AuthorizationStatus> {
+  if (Platform.OS !== "ios" || !Native) {
+    _authStatus = "denied";
+    return _authStatus;
+  }
+  try {
+    const status = await Native.getAuthorizationStatus();
+    _authStatus = status === "authorized" ? "authorized" : "denied";
+  } catch {
+    _authStatus = "denied";
+  }
+  return _authStatus;
+}
+
 // ─── Cached read (hybrid approach: native when available, storage fallback) ──
 
 export async function getCachedSteps(): Promise<StepCount[]> {

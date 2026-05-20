@@ -145,7 +145,7 @@ export default function ChatScreen() {
       <View style={styles.inputContainer}>
         <TextInput
           style={styles.textInput}
-          placeholder="Ask about recovery, sleep, hawker meals..."
+          placeholder="Ask about recovery, sleep, meals, activity..."
           placeholderTextColor="#94a8b8"
           value={inputText}
           onChangeText={setInputText}

@@ -2,6 +2,6 @@
 // without relying solely on babel-plugin-inline-dotenv build-time inlining
 
 export const config = {
-  ollamaUrl: "http://192.168.1.204:11434/v1/chat/completions",
+  ollamaUrl: "http://10.165.9.211:11434/v1/chat/completions",
   ollamaModel: "mistral:7b",
 };

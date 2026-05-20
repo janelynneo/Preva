@@ -247,7 +247,12 @@ export default function MWIScreen({ navigation }: MWIScreenProps) {
           </Text>
           <View style={styles.accuracyPrompts}>
             {!profile?.wearableConnected && (
-              <TouchableOpacity style={styles.accuracyPrompt}>
+              <TouchableOpacity
+                style={styles.accuracyPrompt}
+                onPress={() =>
+                  navigation?.navigate("HomeTabs", { screen: "Profile" })
+                }
+              >
                 <Text style={styles.accuracyPromptIcon}>⌚</Text>
                 <Text style={styles.accuracyPromptText}>Connect wearable</Text>
               </TouchableOpacity>

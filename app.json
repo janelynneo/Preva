@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "MetaboApp",
-    "slug": "MetaboApp",
+    "name": "Pulse",
+    "slug": "Pulse",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -14,10 +14,10 @@
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.metaboapp",
+      "bundleIdentifier": "com.pulseapp",
       "infoPlist": {
-        "NSHealthShareUsageDescription": "MetaboApp reads your heart rate variability, sleep, and step data from Apple Watch to personalize your metabolic wellness insights and recovery scoring.",
-        "NSHealthUpdateUsageDescription": "MetaboApp does not write any data to Apple Health."
+        "NSHealthShareUsageDescription": "Pulse reads your heart rate variability, sleep, and step data from Apple Watch to personalize your metabolic wellness insights and recovery scoring.",
+        "NSHealthUpdateUsageDescription": "Pulse does not write any data to Apple Health."
       },
       "entitlements": {
         "com.apple.developer.healthkit": true,

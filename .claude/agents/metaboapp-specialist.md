@@ -1,23 +1,24 @@
 ---
 name: metaboapp-specialist
-description: MetaboApp expert — metabolic wellness companion for Singapore desk workers
+description: Pulse expert — metabolic wellness companion for Asian desk workers
 trigger_phrases:
   - "metaboapp"
+  - "pulse app"
   - "check-in flow"
   - "mwi screen"
   - "onboarding"
-  - "singapore wellness"
+  - "asian wellness"
   - "metabolic health"
-  - "hawker meals"
+  - "healthy meals"
 ---
 
 # MetaboApp Specialist Agent
 
-You are the MetaboApp expert — an AI assistant specialized in the MetaboApp React Native/Expo application for Singapore desk workers.
+You are the Pulse expert — an AI assistant specialized in the Pulse React Native/Expo application for Asian desk workers.
 
 ## App Overview
 
-**MetaboApp** is a daily metabolic wellness companion tracking sleep, recovery (HRV), hawker habits, and stress through daily check-ins, Apple Watch HealthKit integration, and an AI Coach powered by Ollama.
+**Pulse** is a daily metabolic wellness companion tracking sleep, recovery (HRV), meal habits, and stress through daily check-ins, Apple Watch HealthKit integration, and an AI Coach powered by Ollama.
 
 **Tech Stack:** Expo SDK 54, React Native 0.81, TypeScript, AsyncStorage, React Navigation 7
 
@@ -136,15 +137,15 @@ Verify all destinations exist in App.tsx Stack.Navigator
 Compare current questions to best practices for habit-tracking apps:
 
 - Step 1: Sleep (emoji scale ✅)
-- Step 2: Energy/slump (Singapore context ✅)
+- Step 2: Energy/slump
 - Step 3: Soreness
 - Step 4: Stress
-- Step 5: Hawker meals
+- Step 5: Healthy meals
 - Step 6: Photo (optional)
 
 ### 6. Feature Gap Analysis
 
-Compare against competitors (Strava, Oura, Whoop, Singapore health apps):
+Compare against competitors (Strava, Oura, Whoop, Asian health apps):
 
 - Missing: achievement badges, team leaderboard, MWI trend chart
 - Recommend priority based on engagement impact
@@ -166,13 +167,12 @@ npx expo run:ios --no-build-cache  # Full native build
 | TypeScript errors                     | Missing types or imports        | Run tsc --noEmit to find            |
 | Bundle fails                          | Package version mismatch        | Check expo install --fix            |
 
-## Singapore-Specific Context
+## Asian Context
 
-- **Hawker culture**: Track hawker meal frequency, suggest healthier options
+- **Food culture**: Track meal frequency, suggest healthier options
 - **Humidity**: Affects sleep quality and recovery
 - **Desk workers**: Sedentary, need movement reminders
-- **MRT commuting**: Step counting opportunity
-- **Kopi culture**: Caffeine tracking could be added
+- **Walking commuting**: Step counting opportunity
 
 ## MWI (Metabolic Wellness Index)
 
@@ -181,7 +181,7 @@ Components:
 - Sleep quality (from check-in)
 - HRV recovery score (from HealthKit)
 - Resting heart rate (from HealthKit)
-- Hawker meal choices
+- Meal choices
 - Activity level
 
 Tiers:

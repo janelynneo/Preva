@@ -265,11 +265,11 @@ export async function resetReEngagementTracking(): Promise<void> {
   }
 }
 
-// ─── Singapore contextual hooks ───────────────────────────────────────────────
+// ─── Asian contextual hooks ────────────────────────────────────────────────────
 
-const SG_HOOKS_KEY = "metabo_last_sg_hook_date";
+const ASIAN_HOOKS_KEY = "metabo_last_asian_hook_date";
 
-interface SGHook {
+interface AsianContextHook {
   triggerHour: number;
   triggerMinute: number;
   title: string;
@@ -277,29 +277,29 @@ interface SGHook {
   dataType: string;
 }
 
-// Friday 6PM — hawker session incoming
-const SG_HOOKS: SGHook[] = [
+// Weekend — market food nudge
+const ASIAN_HOOKS: AsianContextHook[] = [
   {
     triggerHour: 18,
     triggerMinute: 0,
-    title: "Weekend hawker mode? 🍜",
-    body: "Logging your hawker meals helps your MWI stay accurate. Check in after your meal!",
-    dataType: "sg_friday_hawker",
+    title: "Weekend market mode? 🍜",
+    body: "Logging your weekend meals helps your MWI stay accurate. Check in after your meal!",
+    dataType: "asian_weekend_food",
   },
   {
     triggerHour: 9,
     triggerMinute: 0,
     title: "Fresh week, fresh baseline 💪",
     body: "Monday morning check-in sets the tone. How'd you sleep?",
-    dataType: "sg_monday_morning",
+    dataType: "asian_monday_morning",
   },
 ];
 
 /**
- * Schedules Singapore-specific contextual notifications.
+ * Schedules Asian-contextual notifications (weekend market food, Monday kickoff).
  * Call once on app launch to set up recurring contextual hooks.
  */
-export async function scheduleSingaporeHooks(): Promise<void> {
+export async function scheduleAsianContextHooks(): Promise<void> {
   if (!Device.isDevice) return;
 
   // Cancel existing contextual hooks before rescheduling
@@ -311,13 +311,13 @@ export async function scheduleSingaporeHooks(): Promise<void> {
       "type" in n.content.data
     ) {
       const t = (n.content.data as any).type as string;
-      if (t.startsWith("sg_")) {
+      if (t.startsWith("asian_")) {
         await Notifications.cancelScheduledNotificationAsync(n.identifier);
       }
     }
   }
 
-  for (const hook of SG_HOOKS) {
+  for (const hook of ASIAN_HOOKS) {
     await Notifications.scheduleNotificationAsync({
       content: {
         title: hook.title,
@@ -327,7 +327,7 @@ export async function scheduleSingaporeHooks(): Promise<void> {
       },
       trigger: {
         type: Notifications.SchedulableTriggerInputTypes.WEEKLY,
-        weekday: hook.dataType === "sg_friday_hawker" ? 6 : 1, // Friday=6, Monday=1
+        weekday: hook.dataType === "asian_weekend_food" ? 6 : 1, // Saturday=6, Monday=1
         hour: hook.triggerHour,
         minute: hook.triggerMinute,
       },
@@ -374,7 +374,7 @@ const SEATED_NUDGES: SeatedNudgeTier[] = [
 /**
  * Schedules recurring seated-nudge notifications on weekdays at times when
  * desk workers are most sedentary (mid-morning, post-lunch, late afternoon).
- * Call on app launch alongside scheduleSingaporeHooks().
+ * Call on app launch alongside scheduleAsianContextHooks().
  */
 export async function scheduleSeatedNudges(): Promise<void> {
   if (!Device.isDevice) return;

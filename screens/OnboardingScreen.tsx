@@ -124,7 +124,7 @@ export default function OnboardingScreen({ navigation }: any) {
       } else {
         Alert.alert(
           "Apple Watch Not Connected",
-          "You declined access to Apple Health. You can enable it later in Settings → Privacy → Health → MetaboApp.",
+          "You declined access to Apple Health. You can enable it later in Settings → Privacy → Health → Pulse.",
           [{ text: "OK" }],
         );
       }
@@ -301,8 +301,8 @@ export default function OnboardingScreen({ navigation }: any) {
         <View style={styles.card}>
           <Text style={styles.question}>What's your ethnicity?</Text>
           <Text style={styles.subtext}>
-            Singapore's hawker culture affects metabolic health differently
-            across ethnicities
+            Metabolic health patterns vary across Asian populations — this helps
+            personalise your recommendations
           </Text>
           <View style={styles.buttonColumn}>
             {ETHNICITIES.map((option) => (
@@ -459,7 +459,7 @@ export default function OnboardingScreen({ navigation }: any) {
                   if (!granted) {
                     Alert.alert(
                       "Notifications Disabled",
-                      "Enable notifications in Settings → MetaboApp → Notifications to receive daily reminders.",
+                      "Enable notifications in Settings → Pulse → Notifications to receive daily reminders.",
                       [{ text: "OK" }],
                     );
                     return;

@@ -23,7 +23,7 @@ export default function CheckInScreen({ navigation }: CheckInScreenProps) {
   const [soreness, setSoreness] = useState<string | null>(null);
   const [energyLevel, setEnergyLevel] = useState(0);
   const [stressLevel, setStressLevel] = useState(0);
-  const [hawkerMeals, setHawkerMeals] = useState(1);
+  const [healthyMeals, setHealthyMeals] = useState(1);
   const [photoUri, setPhotoUri] = useState<string | null>(null);
   const [submitted, setSubmitted] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -95,7 +95,7 @@ export default function CheckInScreen({ navigation }: CheckInScreenProps) {
         energy: energyLevel,
         stress: stressLevel,
         soreness: soreness || "None",
-        hawkerMeals,
+        healthyMeals,
         notes: "",
       };
       await StorageService.saveCheckIn(checkIn);
@@ -126,7 +126,7 @@ export default function CheckInScreen({ navigation }: CheckInScreenProps) {
     if (status !== "granted") {
       Alert.alert(
         "Permission needed",
-        "Photo access lets you log your hawker meals visually.",
+        "Photo access lets you log your meals visually.",
         [{ text: "OK" }],
       );
       return;
@@ -276,7 +276,7 @@ export default function CheckInScreen({ navigation }: CheckInScreenProps) {
           </View>
         )}
 
-        {/* Step 2: Energy - Singapore Context */}
+        {/* Step 2: Energy */}
         {step === 2 && (
           <View style={styles.questionCard}>
             <Text style={styles.question}>Did you beat the 3pm slump?</Text>
@@ -365,26 +365,26 @@ export default function CheckInScreen({ navigation }: CheckInScreenProps) {
           </View>
         )}
 
-        {/* Step 5: Hawker Meals */}
+        {/* Step 5: Healthy Meals */}
         {step === 5 && (
           <View style={styles.questionCard}>
-            <Text style={styles.question}>Hawker meals today?</Text>
+            <Text style={styles.question}>Healthy meals today?</Text>
             <Text style={styles.questionHint}>
-              How many hawker center meals did you have?
+              How many balanced meals did you have?
             </Text>
             <View style={styles.stepper}>
               <TouchableOpacity
                 style={styles.stepperButton}
-                onPress={() => setHawkerMeals(Math.max(0, hawkerMeals - 1))}
+                onPress={() => setHealthyMeals(Math.max(0, healthyMeals - 1))}
               >
                 <Text style={styles.stepperButtonText}>−</Text>
               </TouchableOpacity>
               <View style={styles.stepperValue}>
-                <Text style={styles.stepperValueText}>{hawkerMeals}</Text>
+                <Text style={styles.stepperValueText}>{healthyMeals}</Text>
               </View>
               <TouchableOpacity
                 style={styles.stepperButton}
-                onPress={() => setHawkerMeals(hawkerMeals + 1)}
+                onPress={() => setHealthyMeals(healthyMeals + 1)}
               >
                 <Text style={styles.stepperButtonText}>+</Text>
               </TouchableOpacity>
@@ -417,7 +417,7 @@ export default function CheckInScreen({ navigation }: CheckInScreenProps) {
               <Text style={styles.photoHint}>
                 {photoUri
                   ? "Photo attached — tap ✕ to remove"
-                  : "Optional: attach a photo of your hawker meal"}
+                  : "Optional: attach a photo of your meal"}
               </Text>
             </View>
           </View>
@@ -477,8 +477,8 @@ export default function CheckInScreen({ navigation }: CheckInScreenProps) {
               <Text style={styles.summaryValue}>{soreness}</Text>
             </View>
             <View style={styles.summaryRow}>
-              <Text style={styles.summaryLabel}>Hawker meals</Text>
-              <Text style={styles.summaryValue}>{hawkerMeals}</Text>
+              <Text style={styles.summaryLabel}>Healthy meals</Text>
+              <Text style={styles.summaryValue}>{healthyMeals}</Text>
             </View>
             {photoUri && (
               <View style={styles.summaryRow}>

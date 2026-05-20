@@ -1,6 +1,6 @@
-# MetaboApp Skill
+# Pulse Skill
 
-Detailed knowledge for working on MetaboApp — metabolic wellness companion for Singapore desk workers.
+Detailed knowledge for working on Pulse — metabolic wellness companion for Asian desk workers.
 
 ## Quick Start
 
@@ -99,12 +99,12 @@ Show 🔥 emoji + day count. Celebrate milestones (7, 14, 28 days).
 - Tier 2 (45-74): Amber badge, "Building"
 - Tier 3 (<45): Red badge, "Needs Attention"
 
-## Singapore Context
+## Asian Context
 
-- Hawker meals: Track frequency, suggest brown rice, less oil options
+- Meals: Track frequency, suggest brown rice, less oil options
 - Humidity: Affects sleep quality
 - Desk workers: Movement reminders, standing breaks
-- MRT: Step counting opportunity
+- Walking: Step counting opportunity
 
 ## Troubleshooting
 
