@@ -243,6 +243,93 @@ The app computes a simplified MWI score from check-in data and Apple Watch metri
 
 ---
 
+## 4. Business Model
+
+### Revenue Streams
+
+**B2B2C (Primary — Employer Wellness Benefit)**
+Pulse is offered as an employee wellness benefit. The employer pays a monthly per-employee fee; employees get free access to Pulse Premium. This removes the friction of individual payment and drives faster adoption.
+
+- **Singapore market:** S$5–12 per employee per month (PEPM). Singapore corporate wellness market is estimated at S$400–600M annually.
+- **Target buyer:** HR departments, employee benefits managers, corporate wellness program administrators.
+- **Why employers pay:** Reduced healthcare costs, lower sick days, improved productivity. A desk worker with pre-diabetes who improves their metabolic markers costs the employer less in long-term health claims.
+
+**B2C (Secondary — Direct Consumer)**
+Individual subscription for employees who change jobs ( Pulse account moves with them) or for users discovered through consumer channels.
+
+- **Pricing:** S$12–18 per month per user.
+- **Conversion path:** Free tier with limited check-ins → premium upsell for full MWI, AI Coach, and team challenges.
+
+**Year 1 assumption:** No clinical partnerships required. Revenue is behavioral wellness, not medical.
+
+### Unit Economics
+
+| Metric            | Estimate     | Notes                                        |
+| ----------------- | ------------ | -------------------------------------------- |
+| B2B2C PEPM        | S$8 avg      | Midpoint of S$5–12 range                     |
+| B2C monthly       | S$15 avg     | Midpoint of S$12–18 range                    |
+| B2B sales cycle   | 1–3 months   | Direct HR outreach in Singapore              |
+| B2C CAC           | S$20–40      | App store + organic referral                 |
+| B2C LTV           | S$180        | 12-month average retention at S$15/mo        |
+| B2B embedded cost | ~S$2/user/mo | Cloud backend, notifications, Ollama serving |
+
+### Competitive Positioning
+
+| Competitor             | What they do                             | Pulse's advantage                                                    |
+| ---------------------- | ---------------------------------------- | -------------------------------------------------------------------- |
+| Oura / Whoop           | Ring-based recovery + sleep              | Subscription hardware required; US-centric norms                     |
+| Fitbit / Google Health | Activity tracking + insights             | Generic wellness; no Asian metabolic context                         |
+| Omada Health           | Clinical diabetes prevention             | Requires clinical partnerships; US-centric                           |
+| Noom                   | Behaviour change + coaching              | Calorie-obsessed; gym-user framing                                   |
+| **Pulse**              | **Daily metabolic vitality, Asia-first** | **Hawker food context, Asian metabolic norms, desk-worker specific** |
+
+Pulse's moat: Asian food intelligence + personal baseline deviation (your own norm, not population averages) + B2B2C distribution through employer wellness benefits.
+
+---
+
+## 5. Roadmap
+
+### Year 1 — Singapore Beachhead
+
+**Goal:** Validate product-market fit with 500–1,000 active B2B2C users. Ship production infrastructure.
+
+- [ ] **Q1:** Internal beta (50 users) — validate engagement loop, fix ML scoring, close team backend
+- [ ] **Q2:** B2B2C pilot with 2–5 employer partners (200–500 employees total). HealthKit + backend wired. Real NHANES model training begins.
+- [ ] **Q3:** Full B2B2C launch. First ML models in production (Layer 2 — personal baseline deviation). B2C channel opens.
+- [ ] **Q4:** 500+ active users. First data on MWI improvement rates. Prepare SE Asia expansion.
+
+**Year 1 Infrastructure Required:**
+
+- User authentication (email/OAuth) for B2B2C
+- Backend: Firebase or Supabase for team data, user accounts, ML model serving
+- Ollama hosting (cloud GPU) for AI Coach at scale
+- NHANES model training pipeline + model registry
+
+### Year 2 — Southeast Asia Expansion
+
+**Goal:** 5,000+ active users across Singapore + one additional SE Asian market.
+
+- [ ] **Malaysia, Indonesia, Thailand, Vietnam** — shared hawker/SE Asian food context makes the app transferable with minimal localisation changes (food database swaps, language localisation).
+- [ ] **Fitbit integration** — Apple Watch has limited SE Asia penetration; Fitbit provides a second wearable pathway.
+- [ ] **Local health datasets** — partner with local health systems or academic institutions to re-calibrate Asian metabolic norms from NHANES to local population data.
+- [ ] **Corporate wellness expansion** — HR platform integrations (BambooHR, Workday) for automated provisioning.
+
+### Year 3–5 — India + China + Scale
+
+**Goal:** 50,000+ active users. Full ML pipeline in production.
+
+- [ ] **India + China** — highest diabetes burden globally (India: 11%, China: 13%); largest addressable markets.
+- [ ] **Language localisation** — Mandarin, Malay, Tamil, Bahasa, Vietnamese.
+- [ ] **Layer 1 ML in production** — Cox PH / Random Survival Forest serving 10-year metabolic risk tier to employers (aggregate, anonymised dashboard).
+- [ ] **Clinical pathway (optional):** If and only if a Year 3+ employer partner requests it — separate compliance track for disease prevention claims. Not Year 1.
+
+### Key Design Rules
+
+- **The hawker food angle is a Year 1 differentiator**, not a permanent lock-in. The engine underneath (personal baseline deviation + daily engagement loop + Asia-specific metabolic context) is universal and expands with each market.
+- **No clinical claims in Year 1.** Pulse is a behavioural wellness product. Clinical claims require a separate regulatory path and are explicitly out of scope until Year 3 at the earliest.
+
+---
+
 ### Known Issues
 
 1. **Team service is mock** — `services/team.ts` returns hardcoded data. A real backend (Firebase/Supabase/custom API) needs to be integrated before team challenges work across users.
